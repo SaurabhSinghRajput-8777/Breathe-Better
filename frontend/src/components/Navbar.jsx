@@ -19,7 +19,7 @@ export default function Navbar({ tabs }) {
 
         {/* LEFT — LOGO */}
         <div className="text-xl font-bold tracking-wide select-none text-primary">
-          BreatheBetter
+          BreatheBetter AI
         </div>
 
         {/* RIGHT — TABS + CITY + TOGGLE */}
@@ -40,8 +40,8 @@ export default function Navbar({ tabs }) {
                   text-sm font-medium transition
                   ${
                     isActive
-                      ? "text-indigo-600 dark:text-indigo-400 font-semibold"
-                      : "text-secondary hover:text-indigo-500"
+                      ? "text-indigo-600 dark:text-indigo-500 font-semibold"
+                      : "text-secondary hover:text-indigo-600"
                   }
                 `}
               >

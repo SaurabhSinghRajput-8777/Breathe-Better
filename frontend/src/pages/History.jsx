@@ -97,7 +97,7 @@ export default function History() {
           <select
             className="
               w-full p-2 mt-2 rounded-lg border
-              bg-[var(--card)] text-primary
+              bg-(--card) text-primary
               border-gray-300 dark:border-gray-700
             "
             value={city}
@@ -118,7 +118,7 @@ export default function History() {
           <select
             className="
               w-full p-2 mt-2 rounded-lg border
-              bg-[var(--card)] text-primary
+              bg-(--card) text-primary
               border-gray-300 dark:border-gray-700
             "
             value={days}
@@ -136,7 +136,7 @@ export default function History() {
       <div
         className="
           p-6 rounded-2xl shadow-md border
-          bg-[var(--card)] text-primary
+          bg-(--card) text-primary
           border-gray-300 dark:border-gray-700
         "
       >

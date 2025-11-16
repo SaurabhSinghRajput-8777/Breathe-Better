@@ -24,7 +24,7 @@ export default function About() {
         </p>
 
         <p className="mt-4 text-secondary">
-          Built by <span className="font-semibold text-primary">your team at Bennett University</span>.
+          Built by <span className="font-semibold text-primary">GeeksforGeeks-BU</span>.
         </p>
       </div>
     </div>
