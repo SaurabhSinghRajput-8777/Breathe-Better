@@ -3,7 +3,7 @@ import { ThemeContext } from "../context/ThemeContext";
 import { Link, useLocation } from "react-router-dom";
 
 export default function Navbar({ tabs }) {
-  const { theme, setTheme } = useContext(ThemeContext);
+  const { theme, setTheme, city, setCity } = useContext(ThemeContext);
   const location = useLocation();
 
   return (
@@ -15,7 +15,6 @@ export default function Navbar({ tabs }) {
         transition-all
       "
     >
-      {/* FULL WIDTH NAV */}
       <nav className="w-full h-20 flex items-center justify-between px-4 md:px-8">
 
         {/* LEFT — LOGO */}
@@ -23,10 +22,10 @@ export default function Navbar({ tabs }) {
           BreatheBetter
         </div>
 
-        {/* RIGHT — TABS + TOGGLE */}
+        {/* RIGHT — TABS + CITY + TOGGLE */}
         <div className="flex items-center gap-6">
 
-          {/* NAVIGATION TABS */}
+          {/* NAV TABS */}
           {tabs.map((tab) => {
             const linkPath = tab.toLowerCase();
             const isActive =
@@ -39,9 +38,10 @@ export default function Navbar({ tabs }) {
                 to={linkPath === "home" ? "/" : `/${linkPath}`}
                 className={`
                   text-sm font-medium transition
-                  ${isActive
-                    ? "text-indigo-600 dark:text-indigo-400 font-semibold"
-                    : "text-secondary hover:text-indigo-500"
+                  ${
+                    isActive
+                      ? "text-indigo-600 dark:text-indigo-400 font-semibold"
+                      : "text-secondary hover:text-indigo-500"
                   }
                 `}
               >
@@ -49,6 +49,26 @@ export default function Navbar({ tabs }) {
               </Link>
             );
           })}
+
+          {/* CITY SELECTOR */}
+          <select
+            value={city}
+            onChange={(e) => setCity(e.target.value)}
+            className="
+              px-3 py-2 rounded-md text-sm font-medium
+              bg-(--card) text-primary 
+              border border-gray-300 dark:border-gray-700
+              shadow hover:shadow-md transition
+              outline-none
+            "
+          >
+            <option value="Delhi">Delhi</option>
+            <option value="Mumbai">Mumbai</option>
+            <option value="Bengaluru">Bengaluru</option>
+            <option value="Hyderabad">Hyderabad</option>
+            <option value="Chennai">Chennai</option>
+            <option value="Kolkata">Kolkata</option>
+          </select>
 
           {/* THEME TOGGLE */}
           <button

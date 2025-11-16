@@ -4,73 +4,79 @@ import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import L from "leaflet";
 
-/**
- * Heatmap.jsx
- * - Uses document.documentElement.classList.contains('dark') as theme source (robust fallback)
- * - Fixed Tailwind invalid classes (use bracket-syntax for CSS vars)
- * - Fixed z-index classes to z-[...]
- * - Added cleanup for markers
- * - Ensures map.invalidateSize() when toggling fullscreen
- */
-
 export default function Heatmap() {
   const wrapperRef = useRef(null);
   const mapRef = useRef(null);
   const [isExpanded, setExpanded] = useState(false);
   const [topOffset, setTopOffset] = useState(0);
 
-  // Samples
-  const samplePoints = [
-    [28.6692, 77.4538, 0.6],
-    [28.7041, 77.1025, 0.7],
-    [28.5355, 77.391, 0.4],
-  ];
+  // -------------------------
+  // 🔥 REAL HEATMAP DATA FROM BACKEND
+  // -------------------------
+  const [heatPoints, setHeatPoints] = useState([]);
+  const [loadingMap, setLoadingMap] = useState(true);
 
-  const aqiMarkers = [
-    { lat: 28.65, lng: 77.32, aqi: 290 },
-    { lat: 28.72, lng: 77.12, aqi: 180 },
-    { lat: 28.60, lng: 77.45, aqi: 340 },
-  ];
+  const fetchHeatmap = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/heatmap?city=Delhi&days=1");
+      const data = await res.json();
 
-  // Read theme from document <html> as fallback (works even if context import fails)
+      const converted = data.features
+        .filter((f) => f.geometry?.coordinates)
+        .map((f) => {
+          const [lng, lat] = f.geometry.coordinates;
+          const pm25 = f.properties.pm25 || 0;
+          return [lat, lng, pm25 / 500]; // Normalize PM2.5 → Leaflet heat intensity
+        });
+
+      setHeatPoints(converted);
+      setLoadingMap(false);
+    } catch (err) {
+      console.error("Heatmap fetch error:", err);
+      setLoadingMap(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHeatmap();
+    const interval = setInterval(fetchHeatmap, 60000); // refresh every 60s
+    return () => clearInterval(interval);
+  }, []);
+
+  // ---------------------------
+  // Dark / Light theme detector
+  // ---------------------------
   const getTheme = () =>
-    typeof document !== "undefined" &&
-    document.documentElement.classList.contains("dark")
-      ? "dark"
-      : "light";
+    document.documentElement.classList.contains("dark") ? "dark" : "light";
 
   const theme = getTheme();
 
+  // ---------------------------
+  // Fullscreen toggle
+  // ---------------------------
   const toggleExpand = () => {
     if (!isExpanded) {
-      const top = wrapperRef.current?.getBoundingClientRect().top ?? 0;
-      setTopOffset(top);
+      const rectTop = wrapperRef.current?.getBoundingClientRect().top ?? 0;
+      setTopOffset(rectTop);
     }
-    setExpanded((s) => !s);
+    setExpanded((prev) => !prev);
 
-    // Force Leaflet to redraw after animation completes
+    // fix leaflet render only AFTER animation
     setTimeout(() => {
-      window.dispatchEvent(new Event("resize"));
       const map = mapRef.current;
       if (map) {
-        try {
-          map.invalidateSize();
-        } catch (e) {
-          // ignore
-        }
+        map.invalidateSize();
       }
-    }, 260); // match transition duration (approx)
+    }, 250);
   };
 
   return (
     <div
       ref={wrapperRef}
       className={`relative w-full ${isExpanded ? "z-1200" : "z-10"}`}
-      style={{
-        height: isExpanded ? "100vh" : "55vh",
-      }}
+      style={{ height: isExpanded ? "100vh" : "55vh" }}
     >
-      {/* FULLSCREEN BUTTON (same place for enter/exit) */}
+      {/* FULLSCREEN BUTTON */}
       <button
         onClick={toggleExpand}
         className="
@@ -80,12 +86,11 @@ export default function Heatmap() {
           px-3 py-2 rounded-md shadow-lg text-sm font-semibold
           hover:bg-gray-100 dark:hover:bg-gray-800 transition
         "
-        aria-label={isExpanded ? "Exit fullscreen" : "Enter fullscreen"}
       >
         {isExpanded ? "Exit Fullscreen ✕" : "Fullscreen ⤢"}
       </button>
 
-      {/* MAP AREA */}
+      {/* MAP CONTAINER */}
       <div
         className={`transition-all duration-300 ease-in-out ${
           isExpanded ? "fixed left-0 right-0 bottom-0" : "relative w-full h-full"
@@ -108,16 +113,24 @@ export default function Heatmap() {
           whenCreated={(map) => (mapRef.current = map)}
           style={{ width: "100%", height: "100%" }}
         >
-          {/* Tiles chosen based on theme (document-level) */}
+          {/* THEME TILESET */}
           {theme === "dark" ? (
             <TileLayer url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png" />
           ) : (
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           )}
 
-          <HeatLayer points={samplePoints} />
+          {/* 🔥 REAL HEATMAP */}
+          {!loadingMap && <HeatLayer points={heatPoints} />}
 
-          <AQIMarkers markers={aqiMarkers} />
+          {/* Static AQI Markers (kept unchanged for styling) */}
+          <AQIMarkers
+            markers={[
+              { lat: 28.65, lng: 77.32, aqi: 290 },
+              { lat: 28.72, lng: 77.12, aqi: 180 },
+              { lat: 28.6, lng: 77.45, aqi: 340 },
+            ]}
+          />
 
           <ZoomButtons />
         </MapContainer>
@@ -127,19 +140,19 @@ export default function Heatmap() {
 }
 
 /* ---------------------------------------------------------------------- */
-/* HeatLayer: adds/removes heat layer safely */
+/* HeatLayer connected to backend data */
 /* ---------------------------------------------------------------------- */
 function HeatLayer({ points }) {
   const map = useMap();
   const heatRef = useRef(null);
 
   useEffect(() => {
-    if (!map || !L?.heatLayer) return;
+    if (!map || !L.heatLayer) return;
 
     const heat = L.heatLayer(points, {
-      radius: 25,
-      blur: 20,
-      maxZoom: 17,
+      radius: 28,
+      blur: 22,
+      maxZoom: 18,
       minOpacity: 0.35,
     });
 
@@ -147,11 +160,7 @@ function HeatLayer({ points }) {
     heatRef.current = heat;
 
     return () => {
-      if (heatRef.current) {
-        try {
-          map.removeLayer(heatRef.current);
-        } catch (e) {}
-      }
+      if (heatRef.current) map.removeLayer(heatRef.current);
     };
   }, [map, points]);
 
@@ -159,7 +168,7 @@ function HeatLayer({ points }) {
 }
 
 /* ---------------------------------------------------------------------- */
-/* AQI bubble markers: create and clean up markers */
+/* AQI Bubble Markers (unchanged design) */
 /* ---------------------------------------------------------------------- */
 function AQIMarkers({ markers }) {
   const map = useMap();
@@ -168,19 +177,13 @@ function AQIMarkers({ markers }) {
   useEffect(() => {
     if (!map) return;
 
-    // clear previous
-    created.current.forEach((m) => {
-      try {
-        map.removeLayer(m);
-      } catch (e) {}
-    });
+    created.current.forEach((m) => map.removeLayer(m));
     created.current = [];
 
-    markers.forEach((m) => {
-      const color = getAQIColor(m.aqi);
+    markers.forEach(({ lat, lng, aqi }) => {
       const html = `
         <div style="
-          background: ${color};
+          background:${getAQIColor(aqi)};
           width:46px;height:46px;
           border-radius:50%;
           display:flex;
@@ -190,27 +193,17 @@ function AQIMarkers({ markers }) {
           font-weight:700;
           font-size:14px;
           box-shadow:0 2px 6px rgba(0,0,0,0.25);
-          border: 2px solid rgba(255,255,255,0.08);
         ">
-          ${m.aqi}
+          ${aqi}
         </div>
       `;
-      const bubble = L.divIcon({
-        className: "",
-        html,
-        iconSize: [46, 46],
-      });
-
-      const marker = L.marker([m.lat, m.lng], { icon: bubble }).addTo(map);
+      const icon = L.divIcon({ className: "", html, iconSize: [46, 46] });
+      const marker = L.marker([lat, lng], { icon }).addTo(map);
       created.current.push(marker);
     });
 
     return () => {
-      created.current.forEach((m) => {
-        try {
-          map.removeLayer(m);
-        } catch (e) {}
-      });
+      created.current.forEach((m) => map.removeLayer(m));
       created.current = [];
     };
   }, [map, markers]);
@@ -219,42 +212,34 @@ function AQIMarkers({ markers }) {
 }
 
 function getAQIColor(aqi) {
-  // simple color buckets
-  if (aqi <= 50) return "#10b981"; // good - green
-  if (aqi <= 100) return "#f59e0b"; // moderate - amber
-  if (aqi <= 200) return "#f97316"; // unhealthy sensitive
-  if (aqi <= 300) return "#ef4444"; // unhealthy
-  return "#7c3aed"; // very unhealthy / hazardous
+  if (aqi <= 50) return "#10b981";
+  if (aqi <= 100) return "#f59e0b";
+  if (aqi <= 200) return "#f97316";
+  if (aqi <= 300) return "#ef4444";
+  return "#7c3aed";
 }
 
 /* ---------------------------------------------------------------------- */
-/* ZoomButtons: bottom-right fixed inside map container */
+/* ZOOM BUTTONS (unchanged) */
 /* ---------------------------------------------------------------------- */
 function ZoomButtons() {
   const map = useMap();
 
-  // The element is rendered inside map container DOM, so absolute positioning works
   return (
     <div className="absolute bottom-6 right-6 z-1500 flex flex-col gap-2 pointer-events-none">
-      <div className="pointer-events-auto">
-        <button
-          onClick={() => map.zoomIn()}
-          className="w-10 h-10 bg-white dark:bg-(--card) rounded-md shadow text-xl flex items-center justify-center"
-          title="Zoom In"
-        >
-          +
-        </button>
-      </div>
+      <button
+        onClick={() => map.zoomIn()}
+        className="pointer-events-auto w-10 h-10 bg-white dark:bg-(--card) rounded-md shadow text-xl"
+      >
+        +
+      </button>
 
-      <div className="pointer-events-auto">
-        <button
-          onClick={() => map.zoomOut()}
-          className="w-10 h-10 bg-white dark:bg-(--card) rounded-md shadow text-xl flex items-center justify-center"
-          title="Zoom Out"
-        >
-          −
-        </button>
-      </div>
+      <button
+        onClick={() => map.zoomOut()}
+        className="pointer-events-auto w-10 h-10 bg-white dark:bg-(--card) rounded-md shadow text-xl"
+      >
+        −
+      </button>
     </div>
   );
 }

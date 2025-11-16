@@ -1,170 +1,153 @@
-// src/pages/History.jsx
 import React, { useEffect, useState } from "react";
-import { getHeatmapGeoJSON } from "../lib/api";
 import {
-  ResponsiveContainer,
-  LineChart,
   Line,
-  XAxis,
-  YAxis,
+} from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
   Tooltip,
   Legend,
-  CartesianGrid,
-} from "recharts";
+} from "chart.js";
 
-const CITIES = ["Delhi", "Mumbai", "Bengaluru", "Hyderabad", "Chennai", "Kolkata"];
-const RANGES = [
-  { label: "Last 24 Hours", days: 1 },
-  { label: "Last 48 Hours", days: 2 },
-  { label: "Last 7 Days", days: 7 },
-  { label: "Last 30 Days", days: 30 },
-];
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Legend
+);
 
 export default function History() {
   const [city, setCity] = useState("Delhi");
-  const [range, setRange] = useState(1); 
-  const [loading, setLoading] = useState(true);
-  const [points, setPoints] = useState([]);
-  const [error, setError] = useState(null);
+  const [days, setDays] = useState(3);
+  const [loading, setLoading] = useState(false);
+  const [chartData, setChartData] = useState(null);
 
+  // ---------------------------
+  // FETCH HISTORICAL PM2.5 DATA
+  // ---------------------------
   useEffect(() => {
+    const fetchHistory = async () => {
+      setLoading(true);
+      try {
+        const url = `http://127.0.0.1:8000/heatmap?city=${city}&days=${days}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        // Convert geojson → time series
+        const points = data.features.map(f => ({
+          datetime: new Date(f.properties.datetime),
+          pm25: f.properties.pm25
+        }));
+
+        // Group by hour
+        const grouped = {};
+        points.forEach(p => {
+          const hour = p.datetime.toISOString().slice(0, 13); // YYYY-MM-DD HH
+          if (!grouped[hour]) grouped[hour] = [];
+          grouped[hour].push(p.pm25);
+        });
+
+        const labels = Object.keys(grouped).sort();
+        const values = labels.map(l => {
+          const arr = grouped[l];
+          return arr.reduce((a, b) => a + b, 0) / arr.length;
+        });
+
+        setChartData({
+          labels,
+          datasets: [
+            {
+              label: `PM2.5 History (${city})`,
+              data: values,
+              borderColor: "#6366f1",
+              backgroundColor: "rgba(99, 102, 241, 0.3)",
+              fill: true,
+              tension: 0.3,
+              borderWidth: 2,
+            },
+          ],
+        });
+      } catch (err) {
+        console.error("History fetch error:", err);
+      }
+      setLoading(false);
+    };
+
     fetchHistory();
-  }, [city, range]);
+  }, [city, days]);
 
-  async function fetchHistory() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const geo = await getHeatmapGeoJSON(city, range);
-      const formatted = geo.features
-        .map(f => ({
-          datetime: f.properties.datetime,
-          label: new Date(f.properties.datetime).toLocaleString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          }),
-          pm25: Number(f.properties.pm25),
-        }))
-        .sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
-
-      setPoints(formatted);
-    } catch (e) {
-      console.error("History fetch error:", e);
-      setError(String(e.message || e));
-    }
-
-    setLoading(false);
-  }
-
+  // ---------------------------
+  // UI + GRAPH COMPONENT
+  // ---------------------------
   return (
-    <div className="min-h-screen px-4 md:px-6 pt-20 bg-(--bg) transition-colors">
+    <div className="max-w-6xl mx-auto px-4 py-6">
+      <h1 className="text-3xl font-bold text-primary mb-6">History</h1>
 
-      {/* Title */}
-      <h1 className="text-2xl font-semibold text-primary mb-4 max-w-[1200px] mx-auto">
-        Air Quality History
-      </h1>
+      {/* FILTERS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
 
-      {/* Filters */}
-      <div
-        className="
-          max-w-[1200px] mx-auto mb-5
-          bg-(--card) p-4 rounded-2xl shadow-md
-          border border-gray-300 dark:border-gray-700
-          flex flex-col md:flex-row gap-4 md:items-center md:justify-between
-          transition-colors
-        "
-      >
-        {/* City Selector */}
+        {/* CITY SELECTOR */}
         <div>
-          <label className="block text-secondary text-sm mb-1">Select City</label>
+          <label className="text-secondary text-sm">City</label>
           <select
+            className="
+              w-full p-2 mt-2 rounded-lg border
+              bg-[var(--card)] text-primary
+              border-gray-300 dark:border-gray-700
+            "
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="
-              bg-(--bg) text-primary border border-gray-300 dark:border-gray-700
-              rounded-xl px-4 py-2 outline-none transition w-full
-            "
           >
-            {CITIES.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+            <option>Delhi</option>
+            <option>Mumbai</option>
+            <option>Bengaluru</option>
+            <option>Hyderabad</option>
+            <option>Chennai</option>
+            <option>Kolkata</option>
           </select>
         </div>
 
-        {/* Time Range Selector */}
+        {/* TIME RANGE */}
         <div>
-          <label className="block text-secondary text-sm mb-1">Past Time Range</label>
+          <label className="text-secondary text-sm">Time Range</label>
           <select
-            value={range}
-            onChange={(e) => setRange(Number(e.target.value))}
             className="
-              bg-(--bg) text-primary border border-gray-300 dark:border-gray-700
-              rounded-xl px-4 py-2 outline-none transition w-full
+              w-full p-2 mt-2 rounded-lg border
+              bg-[var(--card)] text-primary
+              border-gray-300 dark:border-gray-700
             "
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
           >
-            {RANGES.map(r => (
-              <option key={r.days} value={r.days}>{r.label}</option>
-            ))}
+            <option value={1}>Past 24 Hours</option>
+            <option value={3}>Past 3 Days</option>
+            <option value={7}>Past 7 Days</option>
+            <option value={30}>Past 30 Days</option>
           </select>
         </div>
       </div>
 
-      {/* History Chart Card */}
-      <section className="max-w-[1200px] mx-auto">
-        <div
-          className="
-            rounded-3xl p-6 shadow-xl border
-            bg-(--card) border-gray-300 dark:border-gray-700
-            transition-colors
-          "
-        >
-          <h2 className="text-lg text-primary font-semibold mb-2">
-            PM2.5 Historical Trend
-          </h2>
-          <p className="text-secondary mb-4">
-            Based on the last {range === 1 ? "24 hours" : `${range} days`} of data.
-          </p>
-
-          <div className="h-72 w-full">
-            {loading ? (
-              <div className="w-full h-full flex items-center justify-center text-secondary">
-                Loading...
-              </div>
-            ) : error ? (
-              <div className="text-red-500">{error}</div>
-            ) : points.length === 0 ? (
-              <div className="text-secondary">No historical data available.</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={points}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--grid)" />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: "var(--text-secondary)" }}
-                  />
-                  <YAxis
-                    tick={{ fill: "var(--text-secondary)" }}
-                  />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="pm25"
-                    stroke="#2563eb"
-                    strokeWidth={2}
-                    dot={false}
-                    name="PM2.5"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </section>
-
+      {/* GRAPH CARD */}
+      <div
+        className="
+          p-6 rounded-2xl shadow-md border
+          bg-[var(--card)] text-primary
+          border-gray-300 dark:border-gray-700
+        "
+      >
+        {loading ? (
+          <p className="text-secondary text-center py-8">Loading data...</p>
+        ) : chartData ? (
+          <Line data={chartData} height={120} />
+        ) : (
+          <p className="text-secondary">No data available</p>
+        )}
+      </div>
     </div>
   );
 }

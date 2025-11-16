@@ -16,7 +16,7 @@ export default function Reports() {
       <div
         className="
         p-6 rounded-2xl border shadow-md
-        bg-[var(--card)] border-gray-300 dark:border-gray-700
+        bg-(--card) border-gray-300 dark:border-gray-700
       "
       >
         <h2 className="text-xl font-semibold text-primary mb-4">Generate PDF Report</h2>
@@ -30,7 +30,7 @@ export default function Reports() {
               onChange={(e) => setCity(e.target.value)}
               className="
                 w-full mt-2 p-2 rounded-lg border
-                bg-[var(--card)] text-primary
+                bg-(--card) text-primary
                 border-gray-300 dark:border-gray-700
               "
             >
@@ -54,7 +54,7 @@ export default function Reports() {
               onChange={(e) => setDays(e.target.value)}
               className="
                 w-full mt-2 p-2 rounded-lg border
-                bg-[var(--card)] text-primary
+                bg-(--card) text-primary
                 border-gray-300 dark:border-gray-700
               "
             />

@@ -8,7 +8,7 @@ export default function About() {
       <div
         className="
           p-6 rounded-2xl shadow-md border
-          bg-[var(--card)] text-primary
+          bg-(--card) text-primary
           border-gray-300 dark:border-gray-700
         "
       >
