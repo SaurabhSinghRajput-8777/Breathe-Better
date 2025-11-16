@@ -1,22 +1,22 @@
 {
   "status": "trained",
-  "rows": 815,
-  "train_rows": 652,
-  "test_rows": 163,
-  "MAE": 8.7943,
-  "RMSE": 14.2619,
-  "R2_score": 0.7942,
-  "accuracy_percent": 90.02,
+  "rows": 804,
+  "train_rows": 643,
+  "test_rows": 161,
+  "MAE": 17.6138,
+  "RMSE": 26.392,
+  "R2_score": 0.6631,
+  "accuracy_percent": 82.38,
   "residual_std": {
-    "xgb": 16.5239,
-    "rf": 13.3931,
-    "lr": 12.2989
+    "xgb": 30.699,
+    "rf": 24.7573,
+    "lr": 17.7356
   },
-  "rf_tree_var": 168.890626,
+  "rf_tree_var": 217.192014,
   "weights": {
     "xgb": 0.5,
     "rf": 0.3,
     "lr": 0.2
   },
-  "trained_at": "2025-11-13T21:29:09.682534"
+  "trained_at": "2025-11-16T10:20:49.314873"
 }
