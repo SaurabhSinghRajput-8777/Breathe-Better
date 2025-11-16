@@ -1,3 +1,4 @@
+# app/utils/data_utils.py
 import requests
 
 # ---------------------------------------------
@@ -10,7 +11,7 @@ OPENAQ_URL = "https://api.openaq.org/v2/latest"
 def fetch_live_aqi(city: str):
     """
     Fetches real-time AQI pollutant readings from OpenAQ API.
-    Returns dictionary containing pm25, pm10, no2, o3, and timestamp.
+    Returns dictionary containing pm25, pm10, no2, o3, so2, co and timestamp.
     """
     params = {
         "city": city,
@@ -41,6 +42,8 @@ def fetch_live_aqi(city: str):
         "pm10": get_value("pm10"),
         "no2": get_value("no2"),
         "o3": get_value("o3"),
+        "so2": get_value("so2"), # ADDED
+        "co": get_value("co"),   # ADDED
         "datetime": measurements[0]["lastUpdated"]
     }
 

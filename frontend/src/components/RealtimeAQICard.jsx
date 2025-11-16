@@ -36,7 +36,7 @@ export default function RealtimeAQICard({ city = "Delhi" }) {
       </h2>
 
       <div className="mt-3">
-        <div className="text-5xl font-bold text-indigo-700 dark:text-indigo-300">
+        <div className="text-5xl font-bold text-indigo-700 dark:text-indigo-600">
           {aqi}
         </div>
 

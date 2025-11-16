@@ -1,5 +1,5 @@
 // src/lib/api.js
-const DEFAULT_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
+export const DEFAULT_BASE = import.meta.env.VITE_API_BASE || "http://localhost:8000";
 
 async function fetchJson(path, opts = {}) {
   const res = await fetch(`${DEFAULT_BASE}${path}`, {
@@ -25,6 +25,11 @@ export async function getPredict(city = "Delhi", duration_hours = 24) {
   return fetchJson(`/predict?city=${encodeURIComponent(city)}&duration_hours=${duration_hours}`);
 }
 
+// NEW FUNCTION
+export async function getLivePollutants(city = "Delhi") {
+  return fetchJson(`/live_pollutants?city=${encodeURIComponent(city)}`);
+}
+
 export async function getWeeklyForecast(city = "Delhi") {
   return fetchJson(`/forecast/weekly?city=${encodeURIComponent(city)}`);
 }
@@ -37,8 +42,8 @@ export async function trainModel(city = "Delhi", days = 30) {
   return fetchJson(`/train?city=${encodeURIComponent(city)}&days=${days}`);
 }
 
-export async function getModelMetrics() {
-  return fetchJson(`/metrics`);
+export async function getModelMetrics(city = "Delhi") { 
+  return fetchJson(`/metrics?city=${encodeURIComponent(city)}`);
 }
 
 export async function downloadPdfReport(city = "Delhi", days = 7) {

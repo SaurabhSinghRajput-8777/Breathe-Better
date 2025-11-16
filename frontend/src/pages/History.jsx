@@ -1,7 +1,5 @@
-import React, { useEffect, useState } from "react";
-import {
-  Line,
-} from "react-chartjs-2";
+import React, { useEffect, useState, useContext } from "react"; // Import useContext
+import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -11,6 +9,8 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
+import { ThemeContext } from "../context/ThemeContext"; // Import context
+import { getHeatmapGeoJSON } from "../lib/api"; // Import API function
 
 ChartJS.register(
   CategoryScale,
@@ -22,7 +22,7 @@ ChartJS.register(
 );
 
 export default function History() {
-  const [city, setCity] = useState("Delhi");
+  const { city, setCity } = useContext(ThemeContext); // Use global city
   const [days, setDays] = useState(3);
   const [loading, setLoading] = useState(false);
   const [chartData, setChartData] = useState(null);
@@ -34,9 +34,8 @@ export default function History() {
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const url = `http://127.0.0.1:8000/heatmap?city=${city}&days=${days}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        // FIX: Use API library and global city
+        const data = await getHeatmapGeoJSON(city, days);
 
         // Convert geojson → time series
         const points = data.features.map(f => ({
@@ -79,14 +78,14 @@ export default function History() {
     };
 
     fetchHistory();
-  }, [city, days]);
+  }, [city, days]); // Re-fetch when global city changes
 
   // ---------------------------
   // UI + GRAPH COMPONENT
   // ---------------------------
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold text-primary mb-6">History</h1>
+      <h1 className="text-3xl font-bold text-primary mb-6">AQI History</h1>
 
       {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -100,8 +99,8 @@ export default function History() {
               bg-(--card) text-primary
               border-gray-300 dark:border-gray-700
             "
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
+            value={city} // Use global city
+            onChange={(e) => setCity(e.target.value)} // Set global city
           >
             <option>Delhi</option>
             <option>Mumbai</option>

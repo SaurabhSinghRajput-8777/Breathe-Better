@@ -31,22 +31,50 @@ def merge_pm25_weather(df_pm25: pd.DataFrame, df_weather: pd.DataFrame) -> pd.Da
     df_pm25["datetime"] = df_pm25["datetime"].dt.round("H")
     df_weather["datetime"] = df_weather["datetime"].dt.round("H")
 
-    # remove duplicate datetime rows in weather, keep the latest
+    # remove duplicate datetime rows
+    df_pm25 = df_pm25.drop_duplicates(subset="datetime", keep="last")
     df_weather = df_weather.drop_duplicates(subset="datetime", keep="last")
 
-    # 🔥 the FIX — clean merge
-    merged = pd.merge(df_pm25, df_weather, on="datetime", how="left")
+    # 🔥 THE FIX (Part 1): Create a complete hourly index
+    # This finds the earliest and latest date in *either* dataset.
+    min_dt = min(df_pm25["datetime"].min(), df_weather["datetime"].min())
+    max_dt = max(df_pm25["datetime"].max(), df_weather["datetime"].max())
+    
+    # Create a perfect, hourly index spanning the full range
+    hourly_index = pd.date_range(start=min_dt.floor('H'), end=max_dt.ceil('H'), freq='H')
+    
+    # Create a new DataFrame based on this perfect index
+    df_complete = pd.DataFrame(hourly_index, columns=["datetime"])
 
-    merged = merged.sort_values("datetime").reset_index(drop=True)
+    # Merge PM2.5 and weather data onto the perfect index
+    # We set datetime as index to merge on it, then reset it
+    df_pm25 = df_pm25.set_index("datetime")
+    df_weather = df_weather.set_index("datetime")
+    
+    df_complete = df_complete.set_index("datetime")
+    
+    df_complete = df_complete.join(df_pm25[["pm25"]])
+    df_complete = df_complete.join(df_weather.drop(columns=["lat", "lon"], errors="ignore"))
+    
+    df_complete = df_complete.reset_index()
 
-    # forward/backfill weather gaps
-    weather_cols = [
-        c for c in merged.columns
-        if c not in ["datetime", "pm25", "lat", "lon"]
-    ]
+    # 🔥 THE FIX (Part 2): Robust interpolation
+    # Now that we have all rows, we can safely fill gaps.
+    
+    # Ensure all feature columns are numeric
+    all_cols = list(df_complete.columns)
+    all_cols.remove("datetime")
+    
+    for col in all_cols:
+         df_complete[col] = pd.to_numeric(df_complete[col], errors="coerce")
+         
+    # 1. Interpolate to fill most gaps (linear fill)
+    df_complete[all_cols] = df_complete[all_cols].interpolate(method='linear', limit_direction='both')
+    # 2. ffill/bfill to clean up any remaining NaNs at the start/end
+    df_complete[all_cols] = df_complete[all_cols].ffill().bfill()
 
-    if weather_cols:
-        merged[weather_cols] = merged[weather_cols].ffill().bfill()
+    # Final safety net
+    merged = df_complete.dropna().reset_index(drop=True)
 
     return merged
 
@@ -65,13 +93,9 @@ def make_features(df: pd.DataFrame, lags: List[int] = None, horizon: int = 1) ->
 
     df = df.copy()
     df = _ensure_dt(df)
-
-    # ensure numeric pm25
-    df["pm25"] = pd.to_numeric(df["pm25"], errors="coerce")
-
-    # sort
-    df = df.sort_values("datetime").reset_index(drop=True)
-
+    
+    # Data is already sorted and interpolated from merge_pm25_weather
+    
     # create lag features from pm25
     for lag in lags:
         df[f"pm25_lag_{lag}"] = df["pm25"].shift(lag)
@@ -88,14 +112,13 @@ def make_features(df: pd.DataFrame, lags: List[int] = None, horizon: int = 1) ->
     # collect weather columns (exclude pm25 and datetime)
     exclude = {"datetime", "pm25", "y"}
     weather_cols = [c for c in df.columns if c not in exclude and not c.startswith("pm25_lag_")]
-    # weather_cols will include time features as well; that's okay
 
     # keep only relevant columns: datetime, y, lag features, weather/time features
     feature_cols = [c for c in df.columns if c.startswith("pm25_lag_")] + [c for c in weather_cols if c != "y" and c != "pm25"]
     keep_cols = ["datetime", "y"] + feature_cols
     out = df[keep_cols].copy()
 
-    # drop rows with NaN in any of feature columns or target
+    # drop rows with NaN in any of feature columns or target (e.g. from lags)
     out = out.dropna().reset_index(drop=True)
 
     return out

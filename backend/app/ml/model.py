@@ -1,9 +1,7 @@
 # app/ml/model.py
 """
-Updated model training / load / predict that avoids leakage.
-- Trains on lag features + weather/time features
-- Uses chronological train/test split
-- Iterative forecasting for future hours using last observed lags
+Updated model training / load / predict
+- Saves and loads models/scalers/metrics based on city name.
 """
 
 import os
@@ -22,16 +20,12 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 try:
     from xgboost import XGBRegressor
 except Exception:
-    XGBRegressor = None  # if not installed, we will skip xgb but prefer to have it
+    XGBRegressor = None
 
 # paths
 BASE_DIR = Path(__file__).resolve().parent
 WEIGHTS_DIR = BASE_DIR / "weights"
 WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-
-MODEL_PATH = WEIGHTS_DIR / "ensemble_joblib_v3.joblib"
-SCALER_PATH = WEIGHTS_DIR / "scaler_v3.joblib"
-METRICS_PATH = WEIGHTS_DIR / "metrics_v3.json"
 
 # default ensemble weights (can be tuned)
 ENSEMBLE_WEIGHTS = {"xgb": 0.5, "rf": 0.3, "lr": 0.2}
@@ -39,16 +33,29 @@ DEFAULT_LAGS = [1,2,3,6,12,24]
 
 
 # -----------------------
+# NEW: Helper for city-specific paths
+# -----------------------
+def get_model_paths(city: str):
+    """Returns city-specific paths for model, scaler, and metrics."""
+    city_slug = city.lower().replace(" ", "_")
+    MODEL_PATH = WEIGHTS_DIR / f"ensemble_bundle_{city_slug}.joblib"
+    METRICS_PATH = WEIGHTS_DIR / f"metrics_{city_slug}.json"
+    # Note: Scaler is now inside the bundle, so no separate path needed
+    return MODEL_PATH, METRICS_PATH
+
+
+# -----------------------
 # Training
 # -----------------------
-def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = None, horizon: int = 1) -> dict:
+def train_model(city: str, df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = None, horizon: int = 1) -> dict:
     """
     Train ensemble using lag features and weather/time features.
-    Uses chronological split (first 80% train, last 20% test).
-    Returns metrics (test metrics) and saves model bundle.
+    Saves bundle (model+scaler) and metrics to city-specific files.
     """
     if lags is None:
         lags = DEFAULT_LAGS
+    
+    MODEL_PATH, METRICS_PATH = get_model_paths(city)
 
     # lazy import preprocess
     from app.utils.preprocess import merge_pm25_weather, make_features
@@ -73,7 +80,7 @@ def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = No
     # need enough rows
     n = len(X)
     if n < 30:
-        raise ValueError("Not enough rows to train (need >=30 rows).")
+        raise ValueError(f"Not enough rows to train for {city} (need >=30 rows, got {n}).")
 
     # chronological split
     split_idx = int(n * 0.8)
@@ -93,6 +100,9 @@ def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = No
         models["xgb"] = xgb
     else:
         models["xgb"] = None
+        ENSEMBLE_WEIGHTS["xgb"] = 0 # Adjust weight if xgb fails
+        ENSEMBLE_WEIGHTS["rf"] = 0.6 # Re-balance
+        ENSEMBLE_WEIGHTS["lr"] = 0.4
 
     rf = RandomForestRegressor(n_estimators=200, n_jobs=-1, random_state=42)
     rf.fit(X_train_scaled, y_train)
@@ -116,23 +126,22 @@ def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = No
     w = ENSEMBLE_WEIGHTS
     p_ensemble = w.get("xgb",0)*preds["xgb"] + w.get("rf",0)*preds["rf"] + w.get("lr",0)*preds["lr"]
 
-    # metrics on test set (realistic eval)
+    # metrics on test set
     mae = float(mean_absolute_error(y_test, p_ensemble))
     rmse = float(np.sqrt(mean_squared_error(y_test, p_ensemble)))
     r2 = float(r2_score(y_test, p_ensemble))
 
-    # residual stds per model on test
+    # residual stds
     res_xgb = (y_test - preds["xgb"]) if len(y_test)>0 else np.array([])
     res_rf = (y_test - preds["rf"]) if len(y_test)>0 else np.array([])
     res_lr = (y_test - preds["lr"]) if len(y_test)>0 else np.array([])
-
     stds = {
         "xgb": float(np.std(res_xgb, ddof=1)) if res_xgb.size>1 else 0.0,
         "rf": float(np.std(res_rf, ddof=1)) if res_rf.size>1 else 0.0,
         "lr": float(np.std(res_lr, ddof=1)) if res_lr.size>1 else 0.0
     }
-
-    # rf tree variance on test predictions (optional)
+    
+    # ... (rf_tree_var calculation) ...
     try:
         tree_preds = np.vstack([t.predict(X_test_scaled) for t in rf.estimators_]) if hasattr(rf, "estimators_") else np.zeros((1, len(y_test)))
         per_sample_var = np.var(tree_preds, axis=0, ddof=1) if tree_preds.size>0 else np.array([0.0])
@@ -143,7 +152,7 @@ def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = No
     # Save bundle: models + scaler + meta
     bundle = {
         "models": {"xgb": models.get("xgb"), "rf": models["rf"], "lr": models["lr"]},
-        "scaler": scaler,
+        "scaler": scaler, # Include scaler in bundle
         "feature_names": feature_names,
         "lags": lags,
         "horizon": horizon,
@@ -153,20 +162,18 @@ def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = No
 
     try:
         joblib.dump(bundle, MODEL_PATH)
-        # also save scaler separately for backward compatibility
-        joblib.dump(scaler, SCALER_PATH)
     except Exception as e:
-        raise RuntimeError(f"Failed to save model bundle: {e}")
+        raise RuntimeError(f"Failed to save model bundle for {city}: {e}")
 
-    # compute accuracy_percent similar to before but on test set
+    # compute accuracy
     mean_y = float(np.mean(y_test)) if len(y_test)>0 else 0.0
     accuracy_percent = (1.0 - (mae / (mean_y + 1e-9))) * 100.0 if mean_y > 0 else 0.0
     accuracy_percent = max(0.0, min(100.0, accuracy_percent))
 
     metrics = {
         "status": "trained",
+        "city": city,
         "rows": int(n),
-        "train_rows": int(len(X_train)),
         "test_rows": int(len(X_test)),
         "MAE": round(mae, 4),
         "RMSE": round(rmse, 4),
@@ -190,18 +197,25 @@ def train_model(df_pm25: pd.DataFrame, df_weather: pd.DataFrame, lags: list = No
 # -----------------------
 # Load model
 # -----------------------
-def load_model():
+def load_model(city: str):
     """
-    Returns (bundle, scaler, metrics_dict) or (None, None, None).
-    Bundle contains models, scaler, feature_names, lags, horizon, weights.
+    Returns (bundle, scaler, metrics_dict) for a specific city.
     """
+    MODEL_PATH, METRICS_PATH = get_model_paths(city)
+
     if not MODEL_PATH.exists():
         return None, None, None
     try:
         bundle = joblib.load(MODEL_PATH)
     except Exception as e:
-        raise RuntimeError(f"Failed to load model bundle: {e}")
+        print(f"Failed to load model bundle for {city}: {e}")
+        return None, None, None
+        
     scaler = bundle.get("scaler")
+    if scaler is None:
+        print(f"Model bundle for {city} is missing scaler.")
+        return None, None, None
+        
     metrics = None
     if METRICS_PATH.exists():
         try:
@@ -209,6 +223,7 @@ def load_model():
                 metrics = json.load(f)
         except Exception:
             metrics = None
+            
     return bundle, scaler, metrics
 
 
@@ -218,13 +233,9 @@ def load_model():
 def predict_future(bundle: dict, scaler: StandardScaler, future_weather: pd.DataFrame, last_history: pd.DataFrame = None):
     """
     Iteratively predict horizon=1 forward for len(future_weather) hours.
-    - bundle: loaded model bundle
-    - scaler: StandardScaler (not strictly required if bundle contains scaler)
-    - future_weather: dataframe with datetime + weather cols for each future hour
-    - last_history: recent historical pm25 with datetime & pm25 to bootstrap lags
-    Returns dict with predictions aligned to future_weather datetimes.
+    (No changes needed in this function's logic)
     """
-    from app.utils.preprocess import _ensure_dt  # internal helper
+    from app.utils.preprocess import _ensure_dt
 
     if bundle is None:
         raise ValueError("Model bundle missing")
@@ -239,56 +250,43 @@ def predict_future(bundle: dict, scaler: StandardScaler, future_weather: pd.Data
     models = bundle.get("models", {})
     weights = bundle.get("weights", ENSEMBLE_WEIGHTS)
 
-    # Build initial lag list from last_history
     if last_history is None or last_history.empty:
-        raise ValueError("last_history required for iterative predictions (to bootstrap lag features).")
+        raise ValueError("last_history required for iterative predictions.")
+        
     last_hist = last_history.copy()
     last_hist["datetime"] = pd.to_datetime(last_hist["datetime"])
     last_hist = last_hist.sort_values("datetime").reset_index(drop=True)
 
-    # extract last max(lags) pm25 values as a deque-like list (most recent last)
     max_lag = max(lags)
     recent = last_hist.tail(max_lag)["pm25"].tolist()
     if len(recent) < max_lag:
-        # pad at front with mean or zeros
-        pad = [float(np.nanmean(last_hist["pm25"])) if not last_hist["pm25"].isna().all() else 0.0] * (max_lag - len(recent))
+        pad_val = float(last_hist["pm25"].mean()) if not last_hist["pm25"].isna().all() else 0.0
+        pad = [pad_val] * (max_lag - len(recent))
         recent = pad + recent
 
-    # predictions list
     preds = []
     pred_datetimes = []
 
-    # For each future hour, create feature vector using weather for that hour and lag features from 'recent'
     for idx, row in future.iterrows():
-        # build a feature dictionary
         feat = {}
-
-        # pm25_lag_k: take value from recent (recent[-1] is t-1, recent[-2] is t-2, etc.)
         for lag in lags:
-            # get value at position -lag
             val = recent[-lag] if lag <= len(recent) else recent[0]
             feat[f"pm25_lag_{lag}"] = float(val) if val is not None else 0.0
 
-        # time features from datetime
         dt = pd.to_datetime(row["datetime"])
         feat["hour"] = int(dt.hour)
         feat["day"] = int(dt.day)
         feat["month"] = int(dt.month)
         feat["weekday"] = int(dt.weekday())
 
-        # include weather columns present in feature_names (if available in future df)
         for col in feature_names:
             if col.startswith("pm25_lag_") or col in ["hour","day","month","weekday"]:
                 continue
-            # if future has this weather column, use it; else try to fallback to NaN -> 0
             feat[col] = float(row[col]) if col in row and not pd.isna(row[col]) else 0.0
 
-        # create DataFrame row matching feature_names order
         X_row = pd.DataFrame([feat], columns=feature_names)
-        # scale
         X_scaled = scaler.transform(X_row)
 
-        # model preds
         p_xgb = models.get("xgb").predict(X_scaled) if models.get("xgb") is not None else np.zeros(1)
         p_rf = models.get("rf").predict(X_scaled)
         p_lr = models.get("lr").predict(X_scaled)
@@ -298,22 +296,29 @@ def predict_future(bundle: dict, scaler: StandardScaler, future_weather: pd.Data
         preds.append(p_val)
         pred_datetimes.append(str(dt))
 
-        # append predicted value into recent list (it becomes the newest pm25) and pop oldest to keep length
         recent.append(p_val)
         if len(recent) > max_lag:
             recent.pop(0)
 
-    return {"datetimes": pred_datetimes, "predictions": np.array(preds)}
+    # Return result_df for compatibility with main.py
+    result_df = future.copy()
+    result_df['pm25_pred'] = preds
+    
+    return {"datetimes": pred_datetimes, "predictions": np.array(preds), "result_df": result_df}
 
 
 # -----------------------
 # Metrics helper
 # -----------------------
-def get_metrics():
+def get_metrics(city: str):
+    """Gets metrics for a specific city."""
+    MODEL_PATH, METRICS_PATH = get_model_paths(city)
+    
     if METRICS_PATH.exists():
         try:
             with open(METRICS_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
-            return {"error":"failed to read metrics"}
-    return {"error":"model not trained"}
+            return {"error":f"failed to read metrics for {city}"}
+            
+    return {"error":f"model not trained for {city}"}

@@ -1,6 +1,8 @@
 // src/pages/Alerts.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useContext } from "react"; // Import useContext
 import AlertsList from "../components/AlertsList";
+import { ThemeContext } from "../context/ThemeContext"; // Import context
+import { getCurrentAQI } from "../lib/api"; // Import API function
 
 /**
  * Alerts page
@@ -11,7 +13,7 @@ import AlertsList from "../components/AlertsList";
  * - Simple "subscribe" form (mock) — if you have a backend route for subscriptions you can replace the handler
  */
 export default function Alerts() {
-  const [city, setCity] = useState("Delhi");
+  const { city, setCity } = useContext(ThemeContext); // Use global city
   const [current, setCurrent] = useState(null);
   const [loading, setLoading] = useState(false);
   const [timeline, setTimeline] = useState([]); // {ts, city, aqi, category}
@@ -19,7 +21,8 @@ export default function Alerts() {
   const [subEmail, setSubEmail] = useState("");
   const [subMsg, setSubMsg] = useState("");
 
-  const IMPORTANT_CATEGORIES = ["Unhealthy", "Very Unhealthy", "Severe", "Hazardous"];
+  // FIX: These categories now match the backend `app/main.py`
+  const IMPORTANT_CATEGORIES = ["Unhealthy for SG", "Unhealthy", "Very Unhealthy", "Hazardous"];
 
   // fetch current aqi once, and then poll
   useEffect(() => {
@@ -29,8 +32,8 @@ export default function Alerts() {
     async function fetchCurrent() {
       setLoading(true);
       try {
-        const res = await fetch(`/current_aqi?city=${encodeURIComponent(city)}`);
-        const data = await res.json();
+        // FIX: Use API library and global city
+        const data = await getCurrentAQI(city);
         if (!mounted) return;
         // data expected: { city, pm25, datetime, category, color }
         setCurrent(data);
@@ -72,7 +75,7 @@ export default function Alerts() {
       mounted = false;
       clearInterval(timer);
     };
-  }, [city, threshold]);
+  }, [city, threshold]); // Re-fetch when global city changes
 
   const handleSubscribe = (e) => {
     e.preventDefault();
@@ -98,8 +101,8 @@ export default function Alerts() {
 
         <div className="flex items-center gap-3">
           <select
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
+            value={city} // Use global city
+            onChange={(e) => setCity(e.target.value)} // Set global city
             className="p-2 rounded-md border bg-(--card) text-primary border-gray-300 dark:border-gray-700"
           >
             <option>Delhi</option>

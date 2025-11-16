@@ -1,11 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react"; // Import useContext
+import { ThemeContext } from "../context/ThemeContext"; // Import context
+import { DEFAULT_BASE } from "../lib/api"; // Import base URL
 
 export default function Reports() {
-  const [city, setCity] = useState("Delhi");
+  const { city, setCity } = useContext(ThemeContext); // Use global city
   const [days, setDays] = useState(7);
 
   const generatePDF = () => {
-    const url = `http://127.0.0.1:8000/report/pdf?city=${city}&days=${days}`;
+    // FIX: Use DEFAULT_BASE from api.js
+    const url = `${DEFAULT_BASE}/report/pdf?city=${city}&days=${days}`;
     window.open(url, "_blank");
   };
 
@@ -26,8 +29,8 @@ export default function Reports() {
           <div>
             <label className="text-secondary text-sm">Select City</label>
             <select
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
+              value={city} // Use global city
+              onChange={(e) => setCity(e.target.value)} // Set global city
               className="
                 w-full mt-2 p-2 rounded-lg border
                 bg-(--card) text-primary

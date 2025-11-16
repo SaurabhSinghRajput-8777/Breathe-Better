@@ -45,7 +45,7 @@ def fetch_history(city: str, days: int = 30):
         pm25_values = res["hourly"]["pm2_5"]
 
         df = pd.DataFrame({
-            "datetime": pd.to_datetime(times),
+            "datetime": pd.to_datetime(times, utc=True), # <-- THE FIX IS HERE
             "pm25": pm25_values
         })
 

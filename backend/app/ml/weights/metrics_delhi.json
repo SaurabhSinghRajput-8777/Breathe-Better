@@ -1,0 +1,22 @@
+{
+  "status": "trained",
+  "city": "Delhi",
+  "rows": 432,
+  "test_rows": 87,
+  "MAE": 46.7539,
+  "RMSE": 58.7638,
+  "R2_score": -0.1016,
+  "accuracy_percent": 68.48,
+  "residual_std": {
+    "xgb": 49.3346,
+    "rf": 44.3221,
+    "lr": 26.4489
+  },
+  "rf_tree_var": 185.533016,
+  "weights": {
+    "xgb": 0.5,
+    "rf": 0.3,
+    "lr": 0.2
+  },
+  "trained_at": "2025-11-16T22:37:37.112522"
+}
