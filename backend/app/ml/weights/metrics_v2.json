@@ -1,0 +1,20 @@
+{
+  "status": "trained",
+  "rows": 97,
+  "MAE": 0.6113,
+  "RMSE": 0.959,
+  "R2_score": 0.9993,
+  "accuracy_percent": 99.25,
+  "residual_std": {
+    "xgb": 0.03,
+    "rf": 2.718,
+    "lr": 1.8864
+  },
+  "rf_tree_var": 41.896538,
+  "weights": {
+    "xgb": 0.5,
+    "rf": 0.3,
+    "lr": 0.2
+  },
+  "trained_at": "2025-11-13T21:22:32.201526"
+}

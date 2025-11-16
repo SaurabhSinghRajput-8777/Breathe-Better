@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+scikit-learn
+tensorflow   # for LSTM training later
+python-multipart
+matplotlib

@@ -1,0 +1,14 @@
+/* Optional leaflet UI tweaks */
+
+.leaflet-container {
+  background: #d0d0d0;
+}
+
+.leaflet-control-attribution {
+  display: none !important;
+}
+
+/* Fix zoom buttons placement (if needed) */
+.leaflet-top.leaflet-left {
+  margin-top: 60px;
+}

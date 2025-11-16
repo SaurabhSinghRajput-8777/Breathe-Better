@@ -1,0 +1,11 @@
+/* Full App Background + Text Reset */
+:root {
+  --light-bg: #F5F7FA;
+  --light-card: #ffffff;
+  --light-text: #1f2937;
+  --light-subtext: #6b7280;
+}
+
+.app-container {
+  @apply bg-(--light-bg) dark:bg-[#0b1220] transition-colors min-h-screen;
+}
