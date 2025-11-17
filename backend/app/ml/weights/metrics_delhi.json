@@ -3,20 +3,20 @@
   "city": "Delhi",
   "rows": 432,
   "test_rows": 87,
-  "MAE": 46.7539,
-  "RMSE": 58.7638,
-  "R2_score": -0.1016,
-  "accuracy_percent": 68.48,
+  "MAE": 31.0772,
+  "RMSE": 37.7489,
+  "R2_score": 0.6296,
+  "accuracy_percent": 80.8,
   "residual_std": {
-    "xgb": 49.3346,
-    "rf": 44.3221,
-    "lr": 26.4489
+    "xgb": 62.3879,
+    "rf": 38.1495,
+    "lr": 23.3476
   },
-  "rf_tree_var": 185.533016,
+  "rf_tree_var": 619.951491,
   "weights": {
-    "xgb": 0.5,
-    "rf": 0.3,
-    "lr": 0.2
+    "xgb": 0,
+    "rf": 0.6,
+    "lr": 0.4
   },
-  "trained_at": "2025-11-16T22:37:37.112522"
+  "trained_at": "2025-11-17T20:36:24.002409"
 }

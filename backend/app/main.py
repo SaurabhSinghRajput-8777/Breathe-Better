@@ -1,15 +1,18 @@
 # app/main.py
 
+from fastapi import HTTPException
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime 
+import os
 
 # utils
 from app.utils.history_utils import fetch_history
 from app.utils.weather_utils import fetch_hourly_weather
-from app.utils.data_utils import fetch_live_aqi 
+# 1. We NO LONGER need fetch_live_aqi from data_utils
+from app.utils.data_utils import CITY_BOUNDING_BOXES 
 
 from fastapi.responses import StreamingResponse, JSONResponse
 from app.utils.report_utils import generate_pdf_report
@@ -20,7 +23,20 @@ import io
 # ml
 from app.ml.model import train_model, load_model, predict_future, get_metrics
 
+# -------------------------------------------------------------------
+# IMPORTS FOR OUR API CALLS
+# -------------------------------------------------------------------
+import asyncio      
+import httpx        # <-- 2. This is now used by /live_pollutants
+from cachetools import cached, TTLCache 
+import numpy as np  
+# -------------------------------------------------------------------
+
+
 load_dotenv()
+
+OWM_API_KEY = os.environ.get("OWM_API_KEY")
+print(f"--- SERVER START: OWM API Key is Loaded: {OWM_API_KEY is not None} ---") # <-- ADD THIS
 
 app = FastAPI(title="BreatheBetter Hybrid Backend", version="4.0")
 
@@ -32,6 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 CITY_COORDS = {
     "Delhi": (28.7041, 77.1025),
     "Mumbai": (19.0760, 72.8777),
@@ -42,7 +59,7 @@ CITY_COORDS = {
 }
 
 # -----------------------------------------------------------
-# AQI CATEGORIZATION HELPER
+# AQI CATEGORIZATION HELPER (Existing)
 # -----------------------------------------------------------
 def get_aqi_category(pm25):
     """Categorizes PM2.5 value based on US EPA standards for AQI"""
@@ -55,7 +72,7 @@ def get_aqi_category(pm25):
 
 
 # -----------------------------------------------------------
-# NEW: AUTO-TRAIN HELPER FUNCTION
+# AUTO-TRAIN HELPER FUNCTION (Existing)
 # -----------------------------------------------------------
 async def get_or_train_model(city: str, train_days: int = 30):
     """
@@ -126,24 +143,53 @@ async def root():
 
 
 # -----------------------------------------------------------
-# NEW: LIVE POLLUTANTS ENDPOINT (for Home page)
+# UPDATED: LIVE POLLUTANTS ENDPOINT (for Home page)
 # -----------------------------------------------------------
 @app.get("/live_pollutants")
 async def live_pollutants(city: str = Query("Delhi")):
     """
-    Returns live pollutant data (pm10, no2, so2, etc.) from OpenAQ.
+    Returns live pollutant data (pm10, no2, so2, etc.) from OpenWeatherMap.
     """
     if city not in CITY_COORDS:
         return {"error": "City not supported"}, 400
     
-    data = fetch_live_aqi(city) 
-    if data is None:
-        return {"error": "No live pollutant data found from OpenAQ."}, 404
+    if not OWM_API_KEY:
+        print("Error: OWM_API_KEY is not set for /live_pollutants.")
+        return {"error": "Server is missing API key"}, 500
+        
+    lat, lon = CITY_COORDS[city]
+    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={OWM_API_KEY}"
     
-    return data
+    try:
+        # Use httpx for an async API call
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, timeout=10.0)
+            response.raise_for_status() # Raise error on bad response
+            data = response.json()
+            
+        # Extract the data we need
+        components = data.get("list", [{}])[0].get("components", {})
+        dt = data.get("list", [{}])[0].get("dt", datetime.now().timestamp())
+        
+        # 3. Reformat the OWM data to match what the frontend expects
+        # (This matches the old OpenAQ format, so no frontend change is needed)
+        formatted_data = {
+            "pm25": components.get("pm2_5"),
+            "pm10": components.get("pm10"),
+            "no2": components.get("no2"),
+            "o3": components.get("o3"),
+            "so2": components.get("so2"),
+            "co": components.get("co"),
+            "datetime": datetime.fromtimestamp(dt).isoformat()
+        }
+        return formatted_data
+        
+    except Exception as e:
+        print(f"Error fetching live pollutants from OWM: {e}")
+        return {"error": "No live pollutant data found from OWM."}, 404
 
 # -----------------------------------------------------------
-# CURRENT AQI ENDPOINT (for Home page)
+# CURRENT AQI ENDPOINT (Existing)
 # -----------------------------------------------------------
 @app.get("/current_aqi")
 async def current_aqi(city: str = Query("Delhi")):
@@ -171,7 +217,7 @@ async def current_aqi(city: str = Query("Delhi")):
     }
 
 # -----------------------------------------------------------
-# TRAIN ENDPOINT (Can still be called manually)
+# TRAIN ENDPOINT (Existing)
 # -----------------------------------------------------------
 @app.get("/train")
 async def train(city: str = Query("Delhi"), days: int = Query(30)):
@@ -184,7 +230,7 @@ async def train(city: str = Query("Delhi"), days: int = Query(30)):
 
 
 # -----------------------------------------------------------
-# PREDICT (WITH AUTO-TRAINING)
+# PREDICT (Existing)
 # -----------------------------------------------------------
 @app.get("/predict")
 async def predict(city: str = Query("Delhi"), duration_hours: int = Query(24)):
@@ -237,16 +283,12 @@ async def predict(city: str = Query("Delhi"), duration_hours: int = Query(24)):
         lower = max(0, float(p - ci_mult * sigma))
         upper = float(p + ci_mult * sigma)
         
-        # 🔥 THE FIX: All weather logic is REMOVED.
-        # This stops the "Internal Server Error" crash.
-
         final.append({
             "hour_index": i,
             "datetime": dt,
             "pm25": round(float(p), 3),
             "lower_95": round(lower, 3),
             "upper_95": round(upper, 3),
-            # "weather": weather_data <-- REMOVED
         })
 
     return {
@@ -257,7 +299,7 @@ async def predict(city: str = Query("Delhi"), duration_hours: int = Query(24)):
 
 
 # -----------------------------------------------------------
-# WEEKLY FORECAST (WITH AUTO-TRAINING)
+# WEEKLY FORECAST (Existing)
 # -----------------------------------------------------------
 @app.get("/forecast/weekly")
 async def weekly_forecast(city: str = Query("Delhi")):
@@ -311,7 +353,7 @@ async def weekly_forecast(city: str = Query("Delhi")):
 
 
 # -----------------------------------------------------------
-# METRICS ENDPOINT (NOW CITY-AWARE)
+# METRICS ENDPOINT (Existing)
 # -----------------------------------------------------------
 @app.get("/metrics")
 async def metrics(city: str = Query("Delhi")):
@@ -321,50 +363,113 @@ async def metrics(city: str = Query("Delhi")):
         return {"error": str(e)}
 
 # -----------------------------
-# HEATMAP (GeoJSON) endpoint
+# HEATMAP (GeoJSON) endpoint (Existing)
 # -----------------------------
-@app.get("/heatmap")
-async def heatmap(city: str = Query("Delhi"), days: int = Query(1)):
-    
-    if city not in CITY_COORDS:
-        return {"error": "City not supported."}
-    df = fetch_history(city, days)
-    if df is None or df.empty:
-        return {"error": "No historical PM2.5 data found."}
-    
-    features = []
-    if "lat" in df.columns and "lon" in df.columns:
-        for _, r in df.iterrows():
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [float(r["lon"]), float(r["lat"])]},
-                "properties": {
-                    "pm25": float(r["pm25"]) if not pd.isna(r["pm25"]) else None,
-                    "datetime": str(r["datetime"])
-                }
-            })
-    else:
-        lat_center, lon_center = CITY_COORDS[city]
-        sample = df.sort_values("datetime", ascending=False).head(200)
-        import random
-        for _, r in sample.iterrows():
-            jitter_lat = lat_center + random.uniform(-0.02, 0.02)
-            jitter_lon = lon_center + random.uniform(-0.02, 0.02)
-            features.append({
-                "type": "Feature",
-                "geometry": {"type": "Point", "coordinates": [jitter_lon, jitter_lat]},
-                "properties": {
-                    "pm25": float(r["pm25"]) if not pd.isna(r["pm25"]) else None,
-                    "datetime": str(r["datetime"])
-                }
-            })
-            
-    geojson = {"type": "FeatureCollection", "features": features}
-    return JSONResponse(content=geojson)
+@app.get("/spatial_heatmap")
+async def get_spatial_heatmap(city: str = Query("Delhi")):
+    if city not in CITY_BOUNDING_BOXES:
+        raise HTTPException(status_code=404, detail="City bounding box not found")
+
+    # ---- Manual cache (fixes CORS issue) ----
+    cached_value = spatial_cache.get(city)
+    if cached_value:
+        return cached_value
+
+    bounds = CITY_BOUNDING_BOXES[city]
+
+    lat_points = np.linspace(bounds["lat_min"], bounds["lat_max"], 10)
+    lon_points = np.linspace(bounds["lon_min"], bounds["lon_max"], 10)
+
+    tasks = []
+
+    async with httpx.AsyncClient() as client:
+        for lat in lat_points:
+            for lon in lon_points:
+                tasks.append(fetch_air_quality_for_point(lat, lon, client))
+
+        results = await asyncio.gather(*tasks)
+
+    spatial_data = [r for r in results if r is not None]
+
+    print(f"Fetched {len(spatial_data)} spatial points for {city}")
+
+    response = {"city": city, "points": spatial_data}
+
+    # store manually in cache
+    spatial_cache[city] = response
+
+    return response
 
 
+
+# -------------------------------------------------------------------
+# SPATIAL HEATMAP (Existing)
+# -------------------------------------------------------------------
+
+spatial_cache = TTLCache(maxsize=10, ttl=900)
+
+async def fetch_air_quality_for_point(lat: float, lon: float, client: httpx.AsyncClient):
+    """
+    Fetches PM2.5 data for a single coordinate point from OpenWeatherMap.
+    """
+    if not OWM_API_KEY:
+        print("Error: OWM_API_KEY is not set.")
+        return None
+        
+    url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={OWM_API_KEY}"
+    try:
+        response = await client.get(url, timeout=10.0) 
+        response.raise_for_status() 
+        data = response.json()
+        
+        pm25 = data.get("list", [{}])[0].get("components", {}).get("pm2_5", 0)
+        
+        return [lat, lon, pm25]
+    except Exception as e:
+        print(f"Failed to fetch spatial data for {lat},{lon}: {e}")
+        return None 
+
+@app.get("/spatial_heatmap")
+async def get_spatial_heatmap(city: str = Query("Delhi")):
+    """
+    Generates random-scattered PM2.5 points for a city's bounding box.
+    Avoids grid-effect and creates organic heatmap patterns.
+    """
+
+    if city not in CITY_BOUNDING_BOXES:
+        raise HTTPException(status_code=404, detail="City bounding box not found")
+
+    bounds = CITY_BOUNDING_BOXES[city]
+
+    num_points = 300  # recommended: 80–150
+
+    # random scattered coordinates
+    lats = np.random.uniform(bounds["lat_min"], bounds["lat_max"], num_points)
+    lons = np.random.uniform(bounds["lon_min"], bounds["lon_max"], num_points)
+
+    tasks = []
+
+    async with httpx.AsyncClient() as client:
+        for lat, lon in zip(lats, lons):
+            tasks.append(fetch_air_quality_for_point(lat, lon, client))
+
+        results = await asyncio.gather(*tasks)
+
+    # Filter valid points
+    spatial_data = [r for r in results if r is not None]
+
+    print(f"Fetched {len(spatial_data)} spatial points for {city}")
+
+    return {"city": city, "points": spatial_data}
+
+
+@app.get("/clear_cache")
+async def clear():
+    spatial_cache.clear()
+    return {"status": "cleared"}
+
 # -----------------------------
-# PDF REPORT endpoint (NOW CITY-AWARE METRICS)
+# PDF REPORT endpoint (Existing)
 # -----------------------------
 @app.get("/report/pdf")
 async def report_pdf(city: str = Query("Delhi"), days: int = Query(7)):

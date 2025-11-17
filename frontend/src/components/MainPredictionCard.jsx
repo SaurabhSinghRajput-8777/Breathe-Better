@@ -349,7 +349,7 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
   return (
     <section className="max-w-[1200px] mx-auto px-4 md:px-6 -mt-30 relative z-30">
       <div
-        className="rounded-3xl p-6 md:p-8 shadow-xl border border-gray-300 dark:border-gray-700 transition-all duration-300 overflow-hidden"
+        className="rounded-3xl p-6 md:p-8 shadow-xl border border-gray-700 dark:border-gray-300 transition-all duration-300 overflow-hidden"
         style={{ background: colorStyles.background }}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full">

@@ -1,59 +1,138 @@
-import React, { useEffect, useRef, useState } from "react";
+// src/components/Heatmap.jsx
+import React, { useEffect, useRef, useState, useContext } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import L from "leaflet";
+import { ThemeContext } from "../context/ThemeContext";
 
+/* ---------------------------------------------------------------
+   CITY CENTERS
+---------------------------------------------------------------- */
+const CITY_CENTERS = {
+  Delhi: [28.7041, 77.1025],
+  Mumbai: [19.076, 72.8777],
+  Bengaluru: [12.9716, 77.5946],
+  Hyderabad: [17.385, 78.4867],
+  Chennai: [13.0827, 80.2707],
+  Kolkata: [22.5726, 88.3639],
+};
+const DEFAULT_ZOOM = 11;
+
+/* ---------------------------------------------------------------
+   AQI COLOR CATEGORIES
+---------------------------------------------------------------- */
+const AQI_COLORS = {
+  good: "#8EE000",
+  moderate: "#E8D500",
+  poor: "#E88C4A",
+  unhealthy: "#E05691",
+  severe: "#8B4FA5",
+  hazardous: "#6E0023",
+};
+
+
+
+function getAqiSize(pm) {
+  if (pm <= 50) return 32;     // small
+  if (pm <= 100) return 38;    
+  if (pm <= 150) return 44;    
+  if (pm <= 200) return 50;    
+  if (pm <= 300) return 56;    
+  return 64;                   // very large bubble
+}
+
+
+function getAqiCategory(pm) {
+  if (pm <= 50) return ["Good", AQI_COLORS.good];
+  if (pm <= 100) return ["Moderate", AQI_COLORS.moderate];
+  if (pm <= 150) return ["Poor", AQI_COLORS.poor];
+  if (pm <= 200) return ["Unhealthy", AQI_COLORS.unhealthy];
+  if (pm <= 300) return ["Severe", AQI_COLORS.severe];
+  return ["Hazardous", AQI_COLORS.hazardous];
+}
+
+/* ---------------------------------------------------------------
+   MAIN HEATMAP + BUBBLE MAP COMPONENT
+---------------------------------------------------------------- */
 export default function Heatmap() {
+  const { city } = useContext(ThemeContext);
   const wrapperRef = useRef(null);
   const mapRef = useRef(null);
+
   const [isExpanded, setExpanded] = useState(false);
   const [topOffset, setTopOffset] = useState(0);
 
-  // -------------------------
-  // 🔥 REAL HEATMAP DATA FROM BACKEND
-  // -------------------------
   const [heatPoints, setHeatPoints] = useState([]);
   const [loadingMap, setLoadingMap] = useState(true);
 
-  const fetchHeatmap = async () => {
-    try {
-      const res = await fetch("http://127.0.0.1:8000/heatmap?city=Delhi&days=1");
-      const data = await res.json();
+  /* ---------------- FETCH SPATIAL AQI ---------------- */
+  /* ---------------- FETCH SPATIAL AQI WITH FE CACHE ---------------- */
+const CACHE_KEY = "heatmap_cache_v1";
 
-      const converted = data.features
-        .filter((f) => f.geometry?.coordinates)
-        .map((f) => {
-          const [lng, lat] = f.geometry.coordinates;
-          const pm25 = f.properties.pm25 || 0;
-          return [lat, lng, pm25 / 500]; // Normalize PM2.5 → Leaflet heat intensity
-        });
+const fetchHeatmap = async (currentCity) => {
+  setLoadingMap(true);
 
-      setHeatPoints(converted);
-      setLoadingMap(false);
-    } catch (err) {
-      console.error("Heatmap fetch error:", err);
-      setLoadingMap(false);
+  // Try reading FE cache
+  const cacheRaw = localStorage.getItem(CACHE_KEY);
+  if (cacheRaw) {
+    const cache = JSON.parse(cacheRaw);
+    const entry = cache[currentCity];
+
+    if (entry) {
+      const age = (Date.now() - entry.timestamp) / 1000;
+
+      // cache valid for 15 minutes
+      if (age < 15 * 60) {
+        console.log(`[FE Cache] Using cached heatmap for ${currentCity}`);
+        setHeatPoints(entry.data);
+        setLoadingMap(false);
+        return;
+      }
     }
-  };
+  }
+
+  // No cache → request backend
+  try {
+    console.log(`[FE Cache] Fetching new data for ${currentCity}…`);
+    const res = await fetch(
+      `http://127.0.0.1:8000/spatial_heatmap?city=${currentCity}`
+    );
+    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+
+    const data = await res.json();
+
+    setHeatPoints(data.points);
+
+    // Save to FE cache
+    const newCache = cacheRaw ? JSON.parse(cacheRaw) : {};
+    newCache[currentCity] = {
+      timestamp: Date.now(),
+      data: data.points,
+    };
+
+    localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
+  } catch (e) {
+    console.error("Heatmap fetch error:", e);
+    setHeatPoints([]);
+  } finally {
+    setLoadingMap(false);
+  }
+};
+
 
   useEffect(() => {
-    fetchHeatmap();
-    const interval = setInterval(fetchHeatmap, 60000); // refresh every 60s
-    return () => clearInterval(interval);
-  }, []);
+    if (!city) return;
 
-  // ---------------------------
-  // Dark / Light theme detector
-  // ---------------------------
-  const getTheme = () =>
-    document.documentElement.classList.contains("dark") ? "dark" : "light";
+    fetchHeatmap(city);
+  }, [city]);
 
-  const theme = getTheme();
+  useEffect(() => {
+    if (mapRef.current)
+      mapRef.current.setView(CITY_CENTERS[city], DEFAULT_ZOOM);
+  }, [city]);
 
-  // ---------------------------
-  // Fullscreen toggle
-  // ---------------------------
+  /* ---------------- FULLSCREEN TOGGLE ---------------- */
   const toggleExpand = () => {
     if (!isExpanded) {
       const rectTop = wrapperRef.current?.getBoundingClientRect().top ?? 0;
@@ -61,45 +140,65 @@ export default function Heatmap() {
     }
     setExpanded((prev) => !prev);
 
-    // fix leaflet render only AFTER animation
     setTimeout(() => {
-      const map = mapRef.current;
-      if (map) {
-        map.invalidateSize();
-      }
-    }, 250);
+      mapRef.current?.invalidateSize();
+    }, 300);
   };
 
+  const theme = document.documentElement.classList.contains("dark")
+    ? "dark"
+    : "light";
+
+    // pick evenly distributed bubble markers
+function pickEvenly(points, count = 20) {
+  if (points.length <= count) return points;
+  const step = Math.floor(points.length / count);
+  let selected = [];
+  for (let i = 0; i < points.length; i += step) {
+    selected.push(points[i]);
+  }
+  return selected.slice(0, count);
+}
+const bubblePoints = pickEvenly(heatPoints, 10);
+
+  /* ------------------ UI + MAP RENDER ------------------- */
   return (
     <div
       ref={wrapperRef}
-      className={`relative w-full ${isExpanded ? "z-1200" : "z-10"}`}
-      style={{ height: isExpanded ? "100vh" : "40vh" }}
+      className={`relative w-full transition-all duration-300 ${
+        isExpanded ? "z-1200" : "z-10"
+      }`}
+      style={{
+        height: isExpanded ? "100vh" : "40vh",
+        borderRadius: "0px",
+
+        overflow: "hidden",
+      }}
     >
-      {/* FULLSCREEN BUTTON */}
+      {/* Fullscreen Button */}
       <button
         onClick={toggleExpand}
         className="
           absolute top-4 right-4 z-2000
-          bg-white dark:bg-(--card)
-          border border-gray-300 dark:border-gray-700
-          px-3 py-2 rounded-md shadow-lg text-sm font-semibold
-          hover:bg-gray-100 dark:hover:bg-gray-800 transition
+          px-4 py-2 text-sm font-semibold rounded-xl
+          backdrop-blur-md shadow-lg
+          bg-white/70 dark:bg-black/20
+          border border-white/30 dark:border-white/20
+          hover:scale-103
+          transition-transform hover:cursor-pointer
         "
       >
         {isExpanded ? "Exit Fullscreen ✕" : "Fullscreen ⤢"}
       </button>
 
-      {/* MAP CONTAINER */}
       <div
-        className={`transition-all duration-300 ease-in-out ${
-          isExpanded ? "fixed left-0 right-0 bottom-0" : "relative w-full h-full"
+        className={`transition-all duration-300 ${
+          isExpanded ? "fixed inset-0" : "relative w-full h-full"
         }`}
         style={
           isExpanded
             ? {
                 top: topOffset,
-                zIndex: 1200,
                 height: `calc(100vh - ${topOffset}px)`,
                 background: "var(--bg)",
               }
@@ -107,138 +206,119 @@ export default function Heatmap() {
         }
       >
         <MapContainer
-          center={[28.6692, 77.4538]}
-          zoom={11}
+          center={CITY_CENTERS[city]}
+          zoom={DEFAULT_ZOOM}
           zoomControl={false}
-          whenCreated={(map) => (mapRef.current = map)}
+          ref={mapRef}
           style={{ width: "100%", height: "100%" }}
         >
-          {/* THEME TILESET */}
+          {/* Light & Dark Tile Layers */}
           {theme === "dark" ? (
             <TileLayer url="https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png" />
           ) : (
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           )}
 
-          {/* 🔥 REAL HEATMAP */}
-          {!loadingMap && <HeatLayer points={heatPoints} />}
+          
 
-          {/* Static AQI Markers (kept unchanged for styling) */}
-          <AQIMarkers
-            markers={[
-              { lat: 28.65, lng: 77.32, aqi: 290 },
-              { lat: 28.72, lng: 77.12, aqi: 180 },
-              { lat: 28.6, lng: 77.45, aqi: 340 },
-            ]}
-          />
+          {/* 🔥 AQI BUBBLE MARKERS (20 evenly spaced) */}
+          {!loadingMap && bubblePoints.map((p, i) => <AQIMarker key={i} point={p} />)}
 
           <ZoomButtons />
         </MapContainer>
+
+        {/* SHIMMER LOADER */}
+        {loadingMap && (
+          <div className="absolute inset-0 z-1500 bg-black/20 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center animate-pulse">
+            <div className="h-10 w-10 rounded-full border-4 border-gray-300 border-t-transparent animate-spin"></div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* ---------------------------------------------------------------------- */
-/* HeatLayer connected to backend data */
-/* ---------------------------------------------------------------------- */
-function HeatLayer({ points }) {
+
+
+/* ---------------------------------------------------------------
+   AQI BUBBLE MARKERS (CLICKABLE)
+---------------------------------------------------------------- */
+function AQIMarker({ point }) {
   const map = useMap();
-  const heatRef = useRef(null);
+  const [lat, lon, pm] = point;
+
+  const [category, color] = getAqiCategory(pm);
+  const size = getAqiSize(pm);            // ⭐ dynamic size
+  const radius = size / 2;
+
+  const icon = L.divIcon({
+    className: "aqi-marker",
+    html: `
+      <div style="
+        background:${color};
+        width:${size}px;
+        height:${size}px;
+        border-radius:50%;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        font-size:${Math.max(12, size / 3)}px;
+        font-weight:700;
+        color:white;
+        box-shadow:0 0 12px rgba(0,0,0,0.25);
+      ">
+        ${Math.round(pm)}
+      </div>
+    `,
+    iconSize: [size, size],
+    iconAnchor: [radius, radius],
+  });
 
   useEffect(() => {
-    if (!map || !L.heatLayer) return;
+    const marker = L.marker([lat, lon], { icon }).addTo(map);
 
-    const heat = L.heatLayer(points, {
-      radius: 28,
-      blur: 22,
-      maxZoom: 18,
-      minOpacity: 0.35,
-    });
+    marker.bindPopup(`
+      <div>
+        <h4 style="font-weight:bold;margin-bottom:6px;">AQI: ${pm}</h4>
+        <p><strong>Category:</strong> ${category}</p>
+        <p><strong>Latitude:</strong> ${lat.toFixed(4)}</p>
+        <p><strong>Longitude:</strong> ${lon.toFixed(4)}</p>
+      </div>
+    `);
 
-    heat.addTo(map);
-    heatRef.current = heat;
-
-    return () => {
-      if (heatRef.current) map.removeLayer(heatRef.current);
-    };
-  }, [map, points]);
+    return () => map.removeLayer(marker);
+  }, []);
 
   return null;
 }
 
-/* ---------------------------------------------------------------------- */
-/* AQI Bubble Markers (unchanged design) */
-/* ---------------------------------------------------------------------- */
-function AQIMarkers({ markers }) {
-  const map = useMap();
-  const created = useRef([]);
 
-  useEffect(() => {
-    if (!map) return;
-
-    created.current.forEach((m) => map.removeLayer(m));
-    created.current = [];
-
-    markers.forEach(({ lat, lng, aqi }) => {
-      const html = `
-        <div style="
-          background:${getAQIColor(aqi)};
-          width:46px;height:46px;
-          border-radius:50%;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          color:white;
-          font-weight:700;
-          font-size:14px;
-          box-shadow:0 2px 6px rgba(0,0,0,0.25);
-        ">
-          ${aqi}
-        </div>
-      `;
-      const icon = L.divIcon({ className: "", html, iconSize: [46, 46] });
-      const marker = L.marker([lat, lng], { icon }).addTo(map);
-      created.current.push(marker);
-    });
-
-    return () => {
-      created.current.forEach((m) => map.removeLayer(m));
-      created.current = [];
-    };
-  }, [map, markers]);
-
-  return null;
-}
-
-function getAQIColor(aqi) {
-  if (aqi <= 50) return "#10b981";
-  if (aqi <= 100) return "#f59e0b";
-  if (aqi <= 200) return "#f97316";
-  if (aqi <= 300) return "#ef4444";
-  return "#7c3aed";
-}
-
-/* ---------------------------------------------------------------------- */
-/* ZOOM BUTTONS (unchanged) */
-/* ---------------------------------------------------------------------- */
+/* ---------------------------------------------------------------
+   ZOOM BUTTONS
+---------------------------------------------------------------- */
 function ZoomButtons() {
   const map = useMap();
 
   return (
-    <div className="absolute bottom-6 right-6 z-1500 flex flex-col gap-2 pointer-events-none">
+    <div className="absolute bottom-6 right-6 z-1500 flex flex-col gap-3">
       <button
         onClick={() => map.zoomIn()}
-        className="pointer-events-auto w-10 h-10 bg-white dark:bg-(--card) rounded-md shadow text-xl"
+        className="
+          w-10 h-10 rounded-xl bg-white/80 dark:bg-black/30 backdrop-blur
+          shadow-md text-xl hover:scale-105 transition-transform hover:cursor-pointer
+        "
       >
         +
       </button>
 
       <button
         onClick={() => map.zoomOut()}
-        className="pointer-events-auto w-10 h-10 bg-white dark:bg-(--card) rounded-md shadow text-xl"
+        className="
+          w-10 h-10 rounded-xl bg-white/80 dark:bg-black/30 backdrop-blur
+          shadow-md text-xl hover:scale-105 transition-transform hover:cursor-pointer
+        "
       >
-        −
+        –
       </button>
     </div>
   );

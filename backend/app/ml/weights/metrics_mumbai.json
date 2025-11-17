@@ -3,20 +3,20 @@
   "city": "Mumbai",
   "rows": 432,
   "test_rows": 87,
-  "MAE": 4.7711,
-  "RMSE": 7.0106,
-  "R2_score": 0.3902,
-  "accuracy_percent": 91.82,
+  "MAE": 4.4021,
+  "RMSE": 6.6053,
+  "R2_score": 0.4587,
+  "accuracy_percent": 92.45,
   "residual_std": {
-    "xgb": 6.7844,
+    "xgb": 9.0297,
     "rf": 6.5236,
     "lr": 7.0239
   },
   "rf_tree_var": 37.942789,
   "weights": {
-    "xgb": 0.5,
-    "rf": 0.3,
-    "lr": 0.2
+    "xgb": 0,
+    "rf": 0.6,
+    "lr": 0.4
   },
-  "trained_at": "2025-11-17T19:26:26.218017"
+  "trained_at": "2025-11-17T21:58:51.961506"
 }

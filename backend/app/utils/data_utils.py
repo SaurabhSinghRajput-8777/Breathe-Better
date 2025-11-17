@@ -2,7 +2,7 @@
 import requests
 
 # ---------------------------------------------
-#  Fetch live AQI data from OpenAQ API
+#  Fetch live AQI data from OpenAQ API (Existing)
 # ---------------------------------------------
 
 OPENAQ_URL = "https://api.openaq.org/v2/latest"
@@ -49,7 +49,7 @@ def fetch_live_aqi(city: str):
 
 
 # ---------------------------------------------
-#  AQI CALCULATION (EPA BREAKPOINT METHOD)
+#  AQI CALCULATION (EPA BREAKPOINT METHOD) (Existing)
 # ---------------------------------------------
 
 def calculate_aqi(pm25):
@@ -76,7 +76,7 @@ def calculate_aqi(pm25):
 
 
 # ---------------------------------------------
-#  AQI CATEGORY LABELS
+#  AQI CATEGORY LABELS (Existing)
 # ---------------------------------------------
 
 def category(aqi):
@@ -97,3 +97,16 @@ def category(aqi):
     if aqi <= 300:
         return "Very Unhealthy"
     return "Hazardous"
+
+# -------------------------------------------------------------------
+# NEW ADDITION FOR THE SPATIAL HEATMAP
+# (This is the part that is missing)
+# -------------------------------------------------------------------
+CITY_BOUNDING_BOXES = {
+    "Delhi": {"lat_min": 28.4, "lat_max": 28.9, "lon_min": 76.8, "lon_max": 77.4},
+    "Mumbai": {"lat_min": 18.8, "lat_max": 19.3, "lon_min": 72.7, "lon_max": 73.1},
+    "Bengaluru": {"lat_min": 12.8, "lat_max": 13.1, "lon_min": 77.4, "lon_max": 77.8},
+    "Hyderabad": {"lat_min": 17.2, "lat_max": 17.6, "lon_min": 78.2, "lon_max": 78.7},
+    "Chennai": {"lat_min": 12.9, "lat_max": 13.2, "lon_min": 80.1, "lon_max": 80.4},
+    "Kolkata": {"lat_min": 22.4, "lat_max": 22.7, "lon_min": 88.2, "lon_max": 88.5},
+}
