@@ -1,0 +1,22 @@
+{
+  "status": "trained",
+  "city": "Mumbai",
+  "rows": 432,
+  "test_rows": 87,
+  "MAE": 4.7711,
+  "RMSE": 7.0106,
+  "R2_score": 0.3902,
+  "accuracy_percent": 91.82,
+  "residual_std": {
+    "xgb": 6.7844,
+    "rf": 6.5236,
+    "lr": 7.0239
+  },
+  "rf_tree_var": 37.942789,
+  "weights": {
+    "xgb": 0.5,
+    "rf": 0.3,
+    "lr": 0.2
+  },
+  "trained_at": "2025-11-17T19:26:26.218017"
+}

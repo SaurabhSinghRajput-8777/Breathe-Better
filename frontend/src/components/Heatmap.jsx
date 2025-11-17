@@ -74,7 +74,7 @@ export default function Heatmap() {
     <div
       ref={wrapperRef}
       className={`relative w-full ${isExpanded ? "z-1200" : "z-10"}`}
-      style={{ height: isExpanded ? "100vh" : "55vh" }}
+      style={{ height: isExpanded ? "100vh" : "40vh" }}
     >
       {/* FULLSCREEN BUTTON */}
       <button

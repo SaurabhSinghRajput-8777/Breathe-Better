@@ -16,7 +16,7 @@
 }
 
 body {
-  @apply bg-(--bg) transition-colors;
+  @apply bg-[--bg] transition-colors;
   color: var(--text-primary);
 }
 
