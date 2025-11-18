@@ -3,7 +3,7 @@
 # ============================
 
 # Python virtual environments
-/backend/.venv/
+backend/venv
 venv/
 env/
 .venv/
