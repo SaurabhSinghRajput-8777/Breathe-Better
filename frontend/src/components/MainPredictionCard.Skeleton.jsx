@@ -5,7 +5,7 @@ import React from 'react';
 function Shimmer({ w, h = 'h-6' }) {
   return (
     <div
-      className={`bg-gray-300 dark:bg-gray-700 rounded ${w} ${h} animate-pulse`}
+      className={`bg-gray-700 dark:bg-gray-300 rounded ${w} ${h} animate-pulse`}
     ></div>
   );
 }
@@ -13,12 +13,12 @@ function Shimmer({ w, h = 'h-6' }) {
 export default function MainPredictionCardSkeleton() {
   return (
     <section className="max-w-[1200px] mx-auto px-4 md:px-6 -mt-30 relative z-30">
-      <div className="rounded-3xl p-6 md:p-8 shadow-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 transition-all duration-300 overflow-hidden">
+      <div className="rounded-3xl p-6 md:p-8 shadow-xl border border-gray-700 dark:border-gray-300 bg-white dark:bg-gray-900 transition-all duration-300 overflow-hidden">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full">
           {/* COLUMN 1 */}
           <div className="flex flex-col space-y-4">
             <div className="flex items-baseline gap-2">
-              <span className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-700 mr-1 animate-pulse"></span>
+              <span className="w-3 h-3 rounded-full bg-gray-700 dark:bg-gray-300 mr-1 animate-pulse"></span>
               <Shimmer w="w-24" h="h-5" />
             </div>
 
@@ -45,7 +45,7 @@ export default function MainPredictionCardSkeleton() {
                 <span>Good</span>
                 <span>Hazardous</span>
               </div>
-              <div className="flex w-full h-2 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse mt-1"></div>
+              <div className="flex w-full h-2 rounded-full bg-gray-700 dark:bg-gray-300 animate-pulse mt-1"></div>
               <div className="flex justify-between text-xs font-medium px-1 opacity-0">
                 <span>0</span>
                 <span>301+</span>
@@ -64,10 +64,10 @@ export default function MainPredictionCardSkeleton() {
 
             <div className="mt-4">
               <div className="flex items-center justify-center space-x-2">
-                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
-                <div className="w-24 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
-                <div className="w-24 h-12 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
-                <div className="w-10 h-10 rounded-full bg-gray-300 dark:bg-gray-700 animate-pulse"></div>
+                <div className="w-10 h-10 rounded-full bg-gray-700 dark:bg-gray-300 animate-pulse"></div>
+                <div className="w-24 h-12 rounded-full bg-gray-700 dark:bg-gray-300 animate-pulse"></div>
+                <div className="w-24 h-12 rounded-full bg-gray-700 dark:bg-gray-300 animate-pulse"></div>
+                <div className="w-10 h-10 rounded-full bg-gray-700 dark:bg-gray-300 animate-pulse"></div>
               </div>
             </div>
           </div>

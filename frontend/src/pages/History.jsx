@@ -96,8 +96,8 @@ export default function History() {
           <select
             className="
               w-full p-2 mt-2 rounded-lg border
-              bg-(--card) text-primary
-              border-gray-300 dark:border-gray-700
+              bg-[var(--card)] text-primary
+              border-gray-700 dark:border-gray-300
             "
             value={city} // Use global city
             onChange={(e) => setCity(e.target.value)} // Set global city
@@ -117,8 +117,8 @@ export default function History() {
           <select
             className="
               w-full p-2 mt-2 rounded-lg border
-              bg-(--card) text-primary
-              border-gray-300 dark:border-gray-700
+              bg-[var(--card)] text-primary
+              border-gray-700 dark:border-gray-300
             "
             value={days}
             onChange={(e) => setDays(e.target.value)}
@@ -135,8 +135,8 @@ export default function History() {
       <div
         className="
           p-6 rounded-2xl shadow-md border
-          bg-(--card) text-primary
-          border-gray-300 dark:border-gray-700
+          bg-[var(--card)] text-primary
+          border-gray-700 dark:border-gray-300
         "
       >
         {loading ? (

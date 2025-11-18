@@ -1,22 +1,22 @@
 {
   "status": "trained",
   "city": "Bengaluru",
-  "rows": 432,
-  "test_rows": 87,
-  "MAE": 7.5042,
-  "RMSE": 8.8538,
-  "R2_score": 0.0521,
-  "accuracy_percent": 55.61,
+  "rows": 421,
+  "test_rows": 85,
+  "MAE": 6.3504,
+  "RMSE": 7.5908,
+  "R2_score": 0.3913,
+  "accuracy_percent": 64.21,
   "residual_std": {
-    "xgb": 6.6171,
-    "rf": 5.5973,
-    "lr": 4.1854
+    "xgb": 9.7875,
+    "rf": 6.0894,
+    "lr": 4.4349
   },
-  "rf_tree_var": 58.881738,
+  "rf_tree_var": 69.376911,
   "weights": {
-    "xgb": 0.5,
-    "rf": 0.3,
-    "lr": 0.2
+    "xgb": 0,
+    "rf": 0.6,
+    "lr": 0.4
   },
-  "trained_at": "2025-11-17T19:41:22.041028"
+  "trained_at": "2025-11-18T10:03:09.095196"
 }

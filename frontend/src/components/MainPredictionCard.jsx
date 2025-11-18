@@ -28,13 +28,14 @@ function getAQICategory(aqi) {
 
 function getAQIColorStyles(aqi, theme = "light") {
   // ... (This entire function is unchanged)
-  const cardTopBgColor = theme === "dark" ? "#111827" : "#ffffff";
+  // 🔥 FIX 1: Changed hardcoded colors to your CSS variable
+  const cardTopBgColor = "var(--card)";
   const topMainTextColor = theme === "dark" ? "#e5e7eb" : "#374151";
   const opacity = "20";
 
   const scaleColors = {
     good: "#00E400",
-    moderate: "#FFFF00",
+    moderate: "#F0D400",
     poor: "#F07554",
     unhealthy: "#F54E8E",
     severe: "#8F3F97",
@@ -79,7 +80,7 @@ function getAQIColorStyles(aqi, theme = "light") {
     categoryTextColor = topMainTextColor;
     categoryBgColor = `${scaleColors.moderate}${opacity}`;
     accentColor = scaleColors.moderate;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FFFF6B 100%)`;
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FFFF4A 100%)`;
   } else if (aqi <= 150) {
     aqiValueColor = scaleColors.poor;
     categoryTextColor = topMainTextColor;
@@ -251,14 +252,17 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
     }
 
     // ... (rest of this useMemo logic is unchanged) ...
+    // This logic was updated in a previous step to correctly use liveAqiData
     if (selectedHourIndex === -1 && liveAqiData) {
-      const liveDate = new Date();
+      const livePm25 = liveAqiData.pm25;
+      const liveAqi = pm25ToAQI(livePm25); // Use your pm25ToAQI
+      const liveDate = new Date(liveAqiData.datetime); // Use datetime from live data
       return {
-        aqi: liveAqiData.aqi,
-        category: getAQICategory(liveAqiData.aqi),
-        pm25: liveAqiData.pm25.toFixed(1),
-        lower_95: liveAqiData.lower_95.toFixed(1),
-        upper_95: liveAqiData.upper_95.toFixed(1),
+        aqi: liveAqi,
+        category: getAQICategory(liveAqi),
+        pm25: livePm25.toFixed(1),
+        lower_95: (liveAqi * 0.8).toFixed(1), // Placeholder
+        upper_95: (liveAqi * 1.2).toFixed(1), // Placeholder
         time: liveDate.toLocaleTimeString("en-US", {
           hour: "numeric",
           minute: "2-digit",
@@ -311,10 +315,11 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
       }),
       day: predDate.toLocaleDateString("en-US", { weekday: "long" }),
     };
-  }, [predData, liveAqiData, isLoading, selectedHourIndex]); // <-- Add isLoading dependency
+  }, [predData, liveAqiData, isLoading, selectedHourIndex]);
 
   // <-- 4. MEMOIZE THE COLOR STYLES
   const colorStyles = useMemo(() => {
+    // We still pass 'theme' because your original logic uses it
     return getAQIColorStyles(aqi, theme);
   }, [aqi, theme]);
 
@@ -327,16 +332,16 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
   // ... (handleTimeChange function is unchanged) ...
   const handleTimeChange = (direction) => {
     const numPredictions = predData?.predictions?.length || 0;
-    const totalItems = 1 + numPredictions;
+    const totalItems = (liveAqiData ? 1 : 0) + numPredictions; // Only include Live if it exists
 
-    let currentIndex = selectedHourIndex + 1;
+    let currentIndex = selectedHourIndex + (liveAqiData ? 1 : 0); // 0 is Live, 1 is first pred
     let nextIndex =
       direction === "next"
         ? (currentIndex + 1) % totalItems
         : (currentIndex - 1 + totalItems) % totalItems;
 
-    setSelectedHourIndex(nextIndex - 1);
-    localStorage.setItem("selectedHourIndex", nextIndex - 1);
+    setSelectedHourIndex(nextIndex - (liveAqiData ? 1 : 0)); // Convert back to -1 for Live
+    localStorage.setItem("selectedHourIndex", nextIndex - (liveAqiData ? 1 : 0));
   };
 
 
@@ -347,9 +352,10 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
 
   // ... (The rest of your return() JSX is unchanged, except for the scale bar)
   return (
-    <section className="max-w-[1200px] mx-auto px-4 md:px-6 -mt-30 relative z-30">
+    <section className="max-w-[1200px] mx-auto px-4 md:px-6 -mt-33 relative z-30">
       <div
-        className="rounded-3xl p-6 md:p-8 shadow-xl border border-gray-700 dark:border-gray-300 transition-all duration-300 overflow-hidden"
+        // 🔥 FIX 2: Replaced hardcoded borders with your CSS variable
+        className="rounded-3xl p-6 md:p-8 shadow-xl border bg-[var(--card)] border-[var(--card-border)] transition-all duration-300 overflow-hidden"
         style={{ background: colorStyles.background }}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start h-full">
@@ -358,13 +364,15 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
           <div className="flex flex-col space-y-4" style={{ color: colorStyles.aqiScaleLabelsColor }}>
             {/* ... (Live AQI, value, category, confidence range are all unchanged) ... */}
             <div className="flex items-baseline gap-2">
-              <span className="w-3 h-3 rounded-full bg-red-500 mr-1 animate-pulse"></span>
+              {selectedHourIndex === -1 && liveAqiData && (
+                <span className="w-3 h-3 rounded-full bg-red-500 mr-1 animate-pulse"></span>
+              )}
               <span className="text-base font-bold">
                 {selectedHourIndex === -1 ? "Live AQI" : "Predicted Air Quality Index (AQI)"}
               </span>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center gap-4">
               <div
                 className="text-7xl lg:text-8xl font-extrabold"
                 style={{
@@ -374,29 +382,28 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
               >
                 {aqi}
               </div>
-              <div className="text-sm font-medium -mt-1">(AQI)</div>
             </div>
 
             <div
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-xl font-semibold leading-none"
+              className="inline-flex items-center justify-center px-4 py-3 rounded-lg text-xl font-semibold leading-none"
               style={{
                 backgroundColor: colorStyles.categoryBgColor,
                 color: colorStyles.categoryTextColor,
                 textShadow: "0 1px 2px rgba(0,0,0,0.1)",
               }}
             >
-              Air Quality is {category}
+              Air Quality will be {category}
             </div>
 
             <div className="flex justify-between mt-4">
               <div>
-                <span className="text-sm">Confidence Range</span>
+                <span className="text-sm font-semibold">Confidence Range</span>
                 <span className="text-xl font-bold block" style={{ color: colorStyles.pmValueColor }}>
                   {lower_95} - {upper_95}
                 </span>
               </div>
               <div>
-                <span className="text-sm">PM2.5</span>
+                <span className="text-sm font-semibold">PM2.5</span>
                 <span className="text-xl font-bold block" style={{ color: colorStyles.pmValueColor }}>
                   {pm25} <span className="text-sm font-normal">µg/m³</span>
                 </span>

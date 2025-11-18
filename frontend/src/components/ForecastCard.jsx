@@ -103,7 +103,7 @@ export default function ForecastCard({ city, hours = 24 }) {
       <div
         className="
           p-6 rounded-2xl shadow-md border
-          bg-(--card) text-primary
+          bg-[var(--card)] text-primary
           border-gray-300 dark:border-gray-700
         "
       >

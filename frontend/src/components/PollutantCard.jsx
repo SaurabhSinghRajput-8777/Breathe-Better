@@ -17,7 +17,7 @@ export default function PollutantCard({ name, value, unit = "µg/m³", trend = "
   return (
     <div
       className="
-        bg-(--card) rounded-xl p-4 shadow-md
+        bg-[var(--card)] rounded-xl p-4 shadow-md
         border border-gray-300 dark:border-gray-700
         transition-colors
       "

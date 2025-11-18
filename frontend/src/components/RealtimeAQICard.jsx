@@ -26,7 +26,7 @@ export default function RealtimeAQICard({ city = "Delhi" }) {
   return (
     <div
       className="
-        bg-white dark:bg-(--card)
+        bg-white dark:bg-[var(--card)]
         text-primary border border-gray-300 dark:border-gray-700
         p-6 rounded-3xl shadow-md transition
       "

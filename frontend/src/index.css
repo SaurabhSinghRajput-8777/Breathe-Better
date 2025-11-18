@@ -6,6 +6,7 @@
   --card: #ffffff;
   --text-primary: #1f2937;
   --text-secondary: #6b7280;
+  --card-border: #E5E7EB; /* This is tailwind gray-200 */
 }
 
 .dark {
@@ -13,6 +14,7 @@
   --card: #111827;
   --text-primary: #f3f4f6;
   --text-secondary: #9ca3af;
+  --card-border: #374151; /* This is tailwind gray-700 */
 }
 
 body {

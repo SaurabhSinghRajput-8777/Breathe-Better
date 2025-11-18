@@ -1,0 +1,22 @@
+{
+  "status": "trained",
+  "city": "Kolkata",
+  "rows": 421,
+  "test_rows": 85,
+  "MAE": 11.5619,
+  "RMSE": 14.781,
+  "R2_score": 0.6282,
+  "accuracy_percent": 81.88,
+  "residual_std": {
+    "xgb": 24.3854,
+    "rf": 12.1325,
+    "lr": 10.3909
+  },
+  "rf_tree_var": 219.430399,
+  "weights": {
+    "xgb": 0,
+    "rf": 0.6,
+    "lr": 0.4
+  },
+  "trained_at": "2025-11-18T10:03:57.693899"
+}

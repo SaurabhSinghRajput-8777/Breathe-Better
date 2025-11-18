@@ -7,7 +7,7 @@ import L from "leaflet";
 import { ThemeContext } from "../context/ThemeContext";
 
 /* ---------------------------------------------------------------
-   CITY CENTERS
+  CITY CENTERS
 ---------------------------------------------------------------- */
 const CITY_CENTERS = {
   Delhi: [28.7041, 77.1025],
@@ -20,7 +20,7 @@ const CITY_CENTERS = {
 const DEFAULT_ZOOM = 11;
 
 /* ---------------------------------------------------------------
-   AQI COLOR CATEGORIES
+  AQI COLOR CATEGORIES
 ---------------------------------------------------------------- */
 const AQI_COLORS = {
   good: "#8EE000",
@@ -39,7 +39,7 @@ function getAqiSize(pm) {
   if (pm <= 150) return 44;    
   if (pm <= 200) return 50;    
   if (pm <= 300) return 56;    
-  return 64;                   // very large bubble
+  return 64;                    // very large bubble
 }
 
 
@@ -53,7 +53,7 @@ function getAqiCategory(pm) {
 }
 
 /* ---------------------------------------------------------------
-   MAIN HEATMAP + BUBBLE MAP COMPONENT
+  MAIN HEATMAP + BUBBLE MAP COMPONENT
 ---------------------------------------------------------------- */
 export default function Heatmap() {
   const { city } = useContext(ThemeContext);
@@ -66,7 +66,6 @@ export default function Heatmap() {
   const [heatPoints, setHeatPoints] = useState([]);
   const [loadingMap, setLoadingMap] = useState(true);
 
-  /* ---------------- FETCH SPATIAL AQI ---------------- */
   /* ---------------- FETCH SPATIAL AQI WITH FE CACHE ---------------- */
 const CACHE_KEY = "heatmap_cache_v1";
 
@@ -95,6 +94,7 @@ const fetchHeatmap = async (currentCity) => {
   // No cache → request backend
   try {
     console.log(`[FE Cache] Fetching new data for ${currentCity}…`);
+    // NOTE: This is a hardcoded URL, you should update this to use your api.js library
     const res = await fetch(
       `http://127.0.0.1:8000/spatial_heatmap?city=${currentCity}`
     );
@@ -182,8 +182,8 @@ const bubblePoints = pickEvenly(heatPoints, 10);
           absolute top-4 right-4 z-2000
           px-4 py-2 text-sm font-semibold rounded-xl
           backdrop-blur-md shadow-lg
-          bg-white/70 dark:bg-black/20
-          border border-white/30 dark:border-white/20
+          bg-[var(--card)]/80 text-primary
+          border border-gray-700 dark:border-gray-300
           hover:scale-103
           transition-transform hover:cursor-pointer
         "
@@ -200,7 +200,7 @@ const bubblePoints = pickEvenly(heatPoints, 10);
             ? {
                 top: topOffset,
                 height: `calc(100vh - ${topOffset}px)`,
-                background: "var(--bg)",
+                background: "var(--bg)", // <-- FIX #1 (Removed quotes and brackets)
               }
             : {}
         }
@@ -241,14 +241,14 @@ const bubblePoints = pickEvenly(heatPoints, 10);
 
 
 /* ---------------------------------------------------------------
-   AQI BUBBLE MARKERS (CLICKABLE)
+  AQI BUBBLE MARKERS (CLICKABLE)
 ---------------------------------------------------------------- */
 function AQIMarker({ point }) {
   const map = useMap();
   const [lat, lon, pm] = point;
 
   const [category, color] = getAqiCategory(pm);
-  const size = getAqiSize(pm);            // ⭐ dynamic size
+  const size = getAqiSize(pm);          // ⭐ dynamic size
   const radius = size / 2;
 
   const icon = L.divIcon({
@@ -294,7 +294,7 @@ function AQIMarker({ point }) {
 
 
 /* ---------------------------------------------------------------
-   ZOOM BUTTONS
+  ZOOM BUTTONS
 ---------------------------------------------------------------- */
 function ZoomButtons() {
   const map = useMap();
@@ -304,8 +304,9 @@ function ZoomButtons() {
       <button
         onClick={() => map.zoomIn()}
         className="
-          w-10 h-10 rounded-xl bg-white/80 dark:bg-black/30 backdrop-blur
+          w-10 h-10 rounded-xl bg-[var(--card)]/80 backdrop-blur text-primary
           shadow-md text-xl hover:scale-105 transition-transform hover:cursor-pointer
+          border border-gray-700 dark:border-gray-300
         "
       >
         +
@@ -314,8 +315,9 @@ function ZoomButtons() {
       <button
         onClick={() => map.zoomOut()}
         className="
-          w-10 h-10 rounded-xl bg-white/80 dark:bg-black/30 backdrop-blur
+          w-10 h-10 rounded-xl bg-[var(--card)]/80 backdrop-blur text-primary
           shadow-md text-xl hover:scale-105 transition-transform hover:cursor-pointer
+          border border-gray-700 dark:border-gray-300
         "
       >
         –
