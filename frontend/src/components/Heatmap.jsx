@@ -20,35 +20,49 @@ const CITY_CENTERS = {
 const DEFAULT_ZOOM = 11;
 
 /* ---------------------------------------------------------------
-  AQI COLOR CATEGORIES
+  AQI COLOR CATEGORIES (INDIAN STANDARD)
 ---------------------------------------------------------------- */
 const AQI_COLORS = {
-  good: "#8EE000",
-  moderate: "#E8D500",
-  poor: "#E88C4A",
-  unhealthy: "#E05691",
-  severe: "#8B4FA5",
-  hazardous: "#6E0023",
+  good: "#00E400",       // Deep Green
+  moderate: "#F0D400",   // Yellow
+  poor: "#F07554",       // Orange
+  unhealthy: "#F54E8E",
+  severe: "#8F3F97",     // Maroon
+  hazardous: "#7E0023"
 };
 
-
-
-function getAqiSize(pm) {
-  if (pm <= 50) return 32;     // small
-  if (pm <= 100) return 38;    
-  if (pm <= 150) return 44;    
-  if (pm <= 200) return 50;    
-  if (pm <= 300) return 56;    
-  return 64;                    // very large bubble
+// 🔥 NEW: Indian Standard PM2.5 -> AQI Conversion
+function pm25ToAQI(pm25) {
+  if (pm25 === null || pm25 === undefined || isNaN(parseFloat(pm25))) return 0;
+  const pm = parseFloat(pm25);
+  
+  if (pm <= 30) return Math.round((50 / 30) * pm);
+  if (pm <= 60) return Math.round(((100 - 51) / (60 - 30)) * (pm - 30) + 51);
+  if (pm <= 90) return Math.round(((200 - 101) / (90 - 60)) * (pm - 60) + 101);
+  if (pm <= 120) return Math.round(((300 - 201) / (120 - 90)) * (pm - 90) + 201);
+  if (pm <= 250) return Math.round(((400 - 301) / (250 - 120)) * (pm - 120) + 301);
+  if (pm > 250) return Math.round(((500 - 401) / (380 - 250)) * (pm - 250) + 401);
+  
+  return 500;
 }
 
+function getAqiSize(aqi) {
+  // Updated thresholds based on AQI scale (0-500)
+  if (aqi <= 50) return 32;     
+  if (aqi <= 100) return 38;    
+  if (aqi <= 200) return 44;    
+  if (aqi <= 300) return 50;    
+  if (aqi <= 400) return 56;    
+  return 64;                    
+}
 
-function getAqiCategory(pm) {
-  if (pm <= 50) return ["Good", AQI_COLORS.good];
-  if (pm <= 100) return ["Moderate", AQI_COLORS.moderate];
-  if (pm <= 150) return ["Poor", AQI_COLORS.poor];
-  if (pm <= 200) return ["Unhealthy", AQI_COLORS.unhealthy];
-  if (pm <= 300) return ["Severe", AQI_COLORS.severe];
+function getAqiCategory(aqi) {
+  // Updated categories based on Indian AQI
+  if (aqi <= 50) return ["Good", AQI_COLORS.good];
+  if (aqi <= 100) return ["Moderate", AQI_COLORS.moderate];
+  if (aqi <= 200) return ["Poor", AQI_COLORS.poor];
+  if (aqi <= 300) return ["Unhealthy", AQI_COLORS.unhealthy];
+  if (aqi <= 400) return ["Severe", AQI_COLORS.severe];
   return ["Hazardous", AQI_COLORS.hazardous];
 }
 
@@ -67,58 +81,58 @@ export default function Heatmap() {
   const [loadingMap, setLoadingMap] = useState(true);
 
   /* ---------------- FETCH SPATIAL AQI WITH FE CACHE ---------------- */
-const CACHE_KEY = "heatmap_cache_v1";
+  const CACHE_KEY = "heatmap_cache_v1";
 
-const fetchHeatmap = async (currentCity) => {
-  setLoadingMap(true);
+  const fetchHeatmap = async (currentCity) => {
+    setLoadingMap(true);
 
-  // Try reading FE cache
-  const cacheRaw = localStorage.getItem(CACHE_KEY);
-  if (cacheRaw) {
-    const cache = JSON.parse(cacheRaw);
-    const entry = cache[currentCity];
+    // Try reading FE cache
+    const cacheRaw = localStorage.getItem(CACHE_KEY);
+    if (cacheRaw) {
+      const cache = JSON.parse(cacheRaw);
+      const entry = cache[currentCity];
 
-    if (entry) {
-      const age = (Date.now() - entry.timestamp) / 1000;
+      if (entry) {
+        const age = (Date.now() - entry.timestamp) / 1000;
 
-      // cache valid for 15 minutes
-      if (age < 15 * 60) {
-        console.log(`[FE Cache] Using cached heatmap for ${currentCity}`);
-        setHeatPoints(entry.data);
-        setLoadingMap(false);
-        return;
+        // cache valid for 15 minutes
+        if (age < 15 * 60) {
+          console.log(`[FE Cache] Using cached heatmap for ${currentCity}`);
+          setHeatPoints(entry.data);
+          setLoadingMap(false);
+          return;
+        }
       }
     }
-  }
 
-  // No cache → request backend
-  try {
-    console.log(`[FE Cache] Fetching new data for ${currentCity}…`);
-    // NOTE: This is a hardcoded URL, you should update this to use your api.js library
-    const res = await fetch(
-      `http://127.0.0.1:8000/spatial_heatmap?city=${currentCity}`
-    );
-    if (!res.ok) throw new Error(`API Error: ${res.status}`);
+    // No cache → request backend
+    try {
+      console.log(`[FE Cache] Fetching new data for ${currentCity}…`);
+      // NOTE: This is a hardcoded URL, you should update this to use your api.js library
+      const res = await fetch(
+        `http://127.0.0.1:8000/spatial_heatmap?city=${currentCity}`
+      );
+      if (!res.ok) throw new Error(`API Error: ${res.status}`);
 
-    const data = await res.json();
+      const data = await res.json();
 
-    setHeatPoints(data.points);
+      setHeatPoints(data.points);
 
-    // Save to FE cache
-    const newCache = cacheRaw ? JSON.parse(cacheRaw) : {};
-    newCache[currentCity] = {
-      timestamp: Date.now(),
-      data: data.points,
-    };
+      // Save to FE cache
+      const newCache = cacheRaw ? JSON.parse(cacheRaw) : {};
+      newCache[currentCity] = {
+        timestamp: Date.now(),
+        data: data.points,
+      };
 
-    localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
-  } catch (e) {
-    console.error("Heatmap fetch error:", e);
-    setHeatPoints([]);
-  } finally {
-    setLoadingMap(false);
-  }
-};
+      localStorage.setItem(CACHE_KEY, JSON.stringify(newCache));
+    } catch (e) {
+      console.error("Heatmap fetch error:", e);
+      setHeatPoints([]);
+    } finally {
+      setLoadingMap(false);
+    }
+  };
 
 
   useEffect(() => {
@@ -150,16 +164,16 @@ const fetchHeatmap = async (currentCity) => {
     : "light";
 
     // pick evenly distributed bubble markers
-function pickEvenly(points, count = 20) {
-  if (points.length <= count) return points;
-  const step = Math.floor(points.length / count);
-  let selected = [];
-  for (let i = 0; i < points.length; i += step) {
-    selected.push(points[i]);
+  function pickEvenly(points, count = 20) {
+    if (points.length <= count) return points;
+    const step = Math.floor(points.length / count);
+    let selected = [];
+    for (let i = 0; i < points.length; i += step) {
+      selected.push(points[i]);
+    }
+    return selected.slice(0, count);
   }
-  return selected.slice(0, count);
-}
-const bubblePoints = pickEvenly(heatPoints, 10);
+  const bubblePoints = pickEvenly(heatPoints, 10);
 
   /* ------------------ UI + MAP RENDER ------------------- */
   return (
@@ -200,7 +214,7 @@ const bubblePoints = pickEvenly(heatPoints, 10);
             ? {
                 top: topOffset,
                 height: `calc(100vh - ${topOffset}px)`,
-                background: "var(--bg)", // <-- FIX #1 (Removed quotes and brackets)
+                background: "var(--bg)", 
               }
             : {}
         }
@@ -245,10 +259,13 @@ const bubblePoints = pickEvenly(heatPoints, 10);
 ---------------------------------------------------------------- */
 function AQIMarker({ point }) {
   const map = useMap();
-  const [lat, lon, pm] = point;
+  const [lat, lon, pm] = point; // pm is raw PM2.5
 
-  const [category, color] = getAqiCategory(pm);
-  const size = getAqiSize(pm);          // ⭐ dynamic size
+  // 🔥 CONVERT PM2.5 TO AQI
+  const aqi = pm25ToAQI(pm);
+
+  const [category, color] = getAqiCategory(aqi);
+  const size = getAqiSize(aqi);         // ⭐ dynamic size based on AQI
   const radius = size / 2;
 
   const icon = L.divIcon({
@@ -264,10 +281,10 @@ function AQIMarker({ point }) {
         align-items:center;
         font-size:${Math.max(12, size / 3)}px;
         font-weight:700;
-        color:white;
+        color:black; /* Improved text contrast for lighter Indian colors */
         box-shadow:0 0 12px rgba(0,0,0,0.25);
       ">
-        ${Math.round(pm)}
+        ${Math.round(aqi)}
       </div>
     `,
     iconSize: [size, size],
@@ -279,8 +296,9 @@ function AQIMarker({ point }) {
 
     marker.bindPopup(`
       <div>
-        <h4 style="font-weight:bold;margin-bottom:6px;">AQI: ${pm}</h4>
+        <h4 style="font-weight:bold;margin-bottom:6px;">AQI: ${aqi}</h4>
         <p><strong>Category:</strong> ${category}</p>
+        <p style="margin-top:4px; font-size:11px; color:#666;">PM2.5: ${Math.round(pm)} µg/m³</p>
         <p><strong>Latitude:</strong> ${lat.toFixed(4)}</p>
         <p><strong>Longitude:</strong> ${lon.toFixed(4)}</p>
       </div>

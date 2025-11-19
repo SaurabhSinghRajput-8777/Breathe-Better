@@ -2,27 +2,28 @@
 import React, { useState, useMemo, useEffect, useContext, useRef, useLayoutEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext.jsx";
 import MainPredictionCardSkeleton from "./MainPredictionCard.Skeleton"; // <-- 1. IMPORT SKELETON
-
+import MaskMan from "../assets/MaskMan.png" 
 function pm25ToAQI(pm25) {
   if (pm25 === null || pm25 === undefined || isNaN(parseFloat(pm25))) return 0;
   const pm = parseFloat(pm25);
-  if (pm <= 12) return Math.round((50 / 12) * pm);
-  if (pm <= 35.4) return Math.round(((100 - 51) / (35.4 - 12.1)) * (pm - 12.1) + 51);
-  if (pm <= 55.4) return Math.round(((150 - 101) / (55.4 - 35.5)) * (pm - 35.5) + 101);
-  if (pm <= 150.4) return Math.round(((200 - 151) / (150.4 - 55.5)) * (pm - 55.5) + 151);
-  if (pm <= 250.4) return Math.round(((300 - 201) / (250.4 - 150.5)) * (pm - 150.5) + 201);
-  if (pm <= 350.4) return Math.round(((400 - 301) / (350.4 - 250.5)) * (pm - 250.5) + 301);
-  if (pm > 350.4) return 500;
-  return 0;
+  // Indian CPCB Breakpoints (PM2.5 to AQI)
+  if (pm <= 30) return Math.round((50 / 30) * pm);
+  if (pm <= 60) return Math.round(((100 - 51) / (60 - 30)) * (pm - 30) + 51);
+  if (pm <= 90) return Math.round(((200 - 101) / (90 - 60)) * (pm - 60) + 101);
+  if (pm <= 120) return Math.round(((300 - 201) / (120 - 90)) * (pm - 90) + 201);
+  if (pm <= 250) return Math.round(((400 - 301) / (250 - 120)) * (pm - 120) + 301);
+  if (pm > 250) return Math.round(((500 - 401) / (380 - 250)) * (pm - 250) + 401);
+  
+  return 500;
 }
 
 function getAQICategory(aqi) {
   if (aqi === null || aqi === "...") return "Loading...";
   if (aqi <= 50) return "Good";
   if (aqi <= 100) return "Moderate";
-  if (aqi <= 150) return "Poor";
-  if (aqi <= 200) return "Unhealthy";
-  if (aqi <= 300) return "Severe";
+  if (aqi <= 200) return "Poor";
+  if (aqi <= 300) return "Unhealthy";
+  if (aqi <= 400) return "Severe";
   return "Hazardous";
 }
 
@@ -74,40 +75,40 @@ function getAQIColorStyles(aqi, theme = "light") {
     categoryTextColor = topMainTextColor;
     categoryBgColor = `${scaleColors.good}${opacity}`;
     accentColor = scaleColors.good;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #69FF69 100%)`;
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #69FF69 150%)`;
   } else if (aqi <= 100) {
     aqiValueColor = scaleColors.moderate;
     categoryTextColor = topMainTextColor;
     categoryBgColor = `${scaleColors.moderate}${opacity}`;
     accentColor = scaleColors.moderate;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FFFF4A 100%)`;
-  } else if (aqi <= 150) {
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FFFF4A 175%)`;
+  } else if (aqi <= 200) {
     aqiValueColor = scaleColors.poor;
     categoryTextColor = topMainTextColor;
     categoryBgColor = `${scaleColors.poor}${opacity}`;
     accentColor = scaleColors.poor;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FC896A 100%)`;
-  } else if (aqi <= 200) {
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FC896A 150%)`;
+  } else if (aqi <= 300) {
     aqiValueColor = scaleColors.unhealthy;
     categoryTextColor = scaleColors.unhealthy;
     categoryBgColor = `${scaleColors.unhealthy}${opacity}`;
     pmValueColor = scaleColors.unhealthy;
     accentColor = scaleColors.unhealthy;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FF6E9F40 100%)`;
-  } else if (aqi <= 300) {
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #FF6E9F40 150%)`;
+  } else if (aqi <= 400) {
     aqiValueColor = scaleColors.severe;
     categoryTextColor = theme === "dark" ? "#e5e7eb" : "#374151";
     categoryBgColor = `${scaleColors.severe}${opacity}`;
     pmValueColor = theme === "dark" ? "#e5e7eb" : "#374151";
     accentColor = scaleColors.severe;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #AB4BB4 100%)`;
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #AB4BB4 150%)`;
   } else {
     aqiValueColor = scaleColors.hazardous;
     categoryTextColor = theme === "dark" ? "#e5e7eb" : "#374151";
     categoryBgColor = `${scaleColors.hazardous}${opacity}`;
     pmValueColor = theme === "dark" ? "#e5e7eb" : "#374151";
     accentColor = scaleColors.hazardous;
-    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #A3002E 100%)`;
+    mainBgColor = `linear-gradient(to bottom, ${cardTopBgColor} 30%, #A3002E 150%)`;
   }
 
   if (aqi > 200 && theme === "light") {
@@ -158,9 +159,9 @@ const AqiScaleBar = React.memo(function AqiScaleBar({ scaleColors, labelColor })
         <span>0</span>
         <span>50</span>
         <span>100</span>
-        <span>150</span>
         <span>200</span>
-        <span>301+</span>
+        <span>300</span>
+        <span>401+</span>
       </div>
     </div>
   );
@@ -233,6 +234,8 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
   // This state is true if the parent is loading OR if we have no data at all yet
   const isLoading = loading || (!liveAqiData && !predData);
 
+  // ... inside MainPredictionCard function ...
+
   const {
     aqi,
     category,
@@ -243,7 +246,7 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
     date,
     day,
   } = useMemo(() => {
-    if (isLoading) { // <-- Use the loading state from outside
+    if (isLoading) { 
       return {
         aqi: "...", category: "Loading...", pm25: "...",
         lower_95: "...", upper_95: "...", time: "...",
@@ -251,40 +254,41 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
       };
     }
 
-    // ... (rest of this useMemo logic is unchanged) ...
-    // This logic was updated in a previous step to correctly use liveAqiData
+    // 1. Live AQI Mode (Index -1)
     if (selectedHourIndex === -1 && liveAqiData) {
       const livePm25 = liveAqiData.pm25;
-      const liveAqi = pm25ToAQI(livePm25); // Use your pm25ToAQI
-      const liveDate = new Date(liveAqiData.datetime); // Use datetime from live data
+      const liveAqi = pm25ToAQI(livePm25);
+      const liveDate = new Date(liveAqiData.datetime);
+      
+      // Safety: Ensure livePm25 is a number
+      const validLive = typeof livePm25 === 'number' && !isNaN(livePm25);
+
       return {
         aqi: liveAqi,
         category: getAQICategory(liveAqi),
-        pm25: livePm25.toFixed(1),
-        lower_95: (liveAqi * 0.8).toFixed(1), // Placeholder
-        upper_95: (liveAqi * 1.2).toFixed(1), // Placeholder
+        pm25: validLive ? livePm25.toFixed(1) : "--",
+        lower_95: validLive ? (liveAqi * 0.8).toFixed(1) : "--",
+        upper_95: validLive ? (liveAqi * 1.2).toFixed(1) : "--",
         time: liveDate.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: false,
+          hour: "numeric", minute: "2-digit", hour12: false,
         }),
         date: liveDate.toLocaleDateString("en-US", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
+          day: "2-digit", month: "short", year: "numeric",
         }),
         day: liveDate.toLocaleDateString("en-US", { weekday: "long" }),
       };
     }
 
+    // 2. Error Handling for Missing Predictions
     if (!predData || !predData.predictions?.length) {
       return {
-        aqi: "N/A", category: "Error", pm25: "N/A",
+        aqi: "N/A", category: "Unavailable", pm25: "N/A",
         lower_95: "N/A", upper_95: "N/A",
-        time: "N/A", date: "Error", day: "Error",
+        time: "N/A", date: "No Data", day: "Error",
       };
     }
 
+    // 3. Prediction Mode
     const maxIndex = predData.predictions.length - 1;
     const validIndex = Math.max(0, Math.min(selectedHourIndex, maxIndex));
     const prediction = predData.predictions[validIndex];
@@ -298,15 +302,21 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
     }
 
     const pm = prediction.pm25;
-    const calculatedAqi = pm25ToAQI(pm);
+    
+    // 🔥 VITAL FIX: Check for null/NaN before using toFixed()
+    const isValid = typeof pm === 'number' && !isNaN(pm);
+    const calculatedAqi = isValid ? pm25ToAQI(pm) : 0;
     const predDate = new Date(prediction.datetime);
 
     return {
-      aqi: calculatedAqi,
-      category: getAQICategory(calculatedAqi),
-      pm25: pm.toFixed(1),
-      lower_95: prediction.lower_95.toFixed(1),
-      upper_95: prediction.upper_95.toFixed(1),
+      aqi: isValid ? calculatedAqi : "N/A",
+      category: isValid ? getAQICategory(calculatedAqi) : "Unavailable",
+      pm25: isValid ? pm.toFixed(1) : "--", // Prevents crash on null
+      
+      // Check confidence intervals too
+      lower_95: (typeof prediction.lower_95 === 'number') ? prediction.lower_95.toFixed(1) : "--",
+      upper_95: (typeof prediction.upper_95 === 'number') ? prediction.upper_95.toFixed(1) : "--",
+      
       time: predDate.toLocaleTimeString("en-US", {
         hour: "numeric", minute: "2-digit", hour12: false
       }),
@@ -397,7 +407,7 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
 
             <div className="flex justify-between mt-4">
               <div>
-                <span className="text-sm font-semibold">Confidence Range</span>
+                <span className="text-sm font-semibold">Confidence Range (PM2.5)</span>
                 <span className="text-xl font-bold block" style={{ color: colorStyles.pmValueColor }}>
                   {lower_95} - {upper_95}
                 </span>
@@ -426,7 +436,7 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
             <div
               className="absolute bottom-0 h-[250px] w-[150px] bg-no-repeat bg-bottom bg-contain"
               style={{
-                backgroundImage: `url('https://i.imgur.com/eBf2K0M.png')`,
+                backgroundImage: `url('${MaskMan}')`,
               }}
             ></div>
           </div>
@@ -482,7 +492,7 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
                   )}
 
                   {predData &&
-                    predData.predictions.map((pred, index) => (
+                    predData?.predictions?.map((pred, index) => (
                       <button
                         key={pred.datetime}
                         data-time-index={index}

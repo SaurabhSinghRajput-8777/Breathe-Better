@@ -41,7 +41,7 @@ export default function Navbar({ tabs }) {
                   px-4 py-2 rounded-full
                   ${
                     isActive
-                      ? "text-indigo-700 bg-indigo-100 dark:text-white dark:bg-indigo-600/95 font-semibold"
+                      ? "text-indigo-700 bg-indigo-100 dark:text-white dark:bg-gray-700/100 font-semibold"
                       : "text-secondary hover:text-primary hover:bg-gray-500/20"
                   }
                 `}
@@ -67,6 +67,7 @@ export default function Navbar({ tabs }) {
               w-10 h-10 rounded-lg flex items-center justify-center
               bg-[var(--card)] border border-[var(--card-border)]
               text-primary shadow hover:shadow-lg transition hover:cursor-pointer
+              outline-none hover:focus:ring-2 focus:ring-gray-500 
             "
           >
             {theme === "dark" ? "☀️" : "🌙"}
@@ -80,7 +81,7 @@ export default function Navbar({ tabs }) {
             to="/login"
             className="
               px-4 py-2 rounded-lg text-sm font-medium
-              bg-indigo-600 hover:bg-indigo-700 text-white
+              bg-gray-700 hover:bg-gray-800 text-white
               shadow hover:shadow-lg transition-colors
             "
           >
@@ -130,7 +131,7 @@ function CityDropdown({ city, setCity }) {
           bg-[var(--card)] text-primary 
           border border-[var(--card-border)]
           shadow hover:shadow-md transition
-          outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500
+          outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500
           hover:cursor-pointer
         "
       >
