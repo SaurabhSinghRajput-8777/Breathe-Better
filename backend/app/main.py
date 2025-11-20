@@ -275,6 +275,64 @@ async def metrics(city: str = Query("Delhi")):
     except Exception as e:
         return {"error": str(e)}
 
+@app.get("/report/pdf")
+async def report_pdf(city: str = Query("Delhi"), days: int = Query(7)):
+    """
+    Generates and downloads a PDF report for the specified city and duration.
+    """
+    if city not in CITY_COORDS:
+        return {"error": "City not supported."}
+    
+    print(f"📄 Generating PDF Report for {city}, Days: {days}")
+    
+    # 1. Fetch History
+    df_history = fetch_history(city, days)
+    
+    # 2. Get Metrics
+    metrics = get_metrics(city) or {} 
+    
+    # 3. Generate PDF
+    try:
+        pdf_bytes = generate_pdf_report(city, df_history, metrics, days=days)
+    except Exception as e:
+        print(f"❌ Report Gen Error: {e}")
+        return {"error": f"Failed to generate PDF: {e}"}
+        
+    filename = f"{city}_BreatheBetter_report_{days}d.pdf"
+    
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes), 
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@app.get("/history")
+async def get_history(city: str = Query("Delhi"), days: int = Query(7)):
+    """
+    Returns hourly historical PM2.5 data for the specified city and duration.
+    """
+    if city not in CITY_COORDS:
+        return {"error": "City not supported"}, 400
+        
+    try:
+        # Reuse your existing utility!
+        df = fetch_history(city, days=days)
+        
+        if df is None or df.empty:
+            return {"city": city, "history": []}
+            
+        # Convert DataFrame to list of dicts for JSON response
+        # df has 'datetime' and 'pm25' columns
+        records = df.to_dict(orient="records")
+        
+        return {
+            "city": city,
+            "days": days,
+            "history": records
+        }
+    except Exception as e:
+        return {"error": f"Failed to fetch history: {str(e)}"}, 500
+
 @app.get("/spatial_heatmap")
 async def get_spatial_heatmap(city: str = Query("Delhi")):
     """Generates random-scattered PM2.5 points."""

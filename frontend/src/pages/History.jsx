@@ -1,151 +1,152 @@
-import React, { useEffect, useState, useContext } from "react"; // Import useContext
+// src/pages/History.jsx
+import React, { useState, useEffect, useContext } from "react";
 import { Line } from "react-chartjs-2";
+import { ThemeContext } from "../context/ThemeContext";
+import { getHistory } from "../lib/api"; 
+import { fetchHistoryCached } from "../utils/fetchHistoryCached"; // 🔥 Import Cache Utility
 import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
   PointElement,
   LineElement,
+  Title,
   Tooltip,
   Legend,
+  Filler,
 } from "chart.js";
-import { ThemeContext } from "../context/ThemeContext"; // Import context
-import { getHeatmapGeoJSON } from "../lib/api"; // Import API function
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend
-);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler);
 
 export default function History() {
-  const { city, setCity } = useContext(ThemeContext); // Use global city
-  const [days, setDays] = useState(3);
-  const [loading, setLoading] = useState(false);
-  const [chartData, setChartData] = useState(null);
+  const { theme, city } = useContext(ThemeContext);
+  const [timeRange, setTimeRange] = useState(7); // Days as number
+  const [historyData, setHistoryData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // ---------------------------
-  // FETCH HISTORICAL PM2.5 DATA
-  // ---------------------------
+  // 🔥 FETCH DATA WITH CACHE
   useEffect(() => {
-    const fetchHistory = async () => {
+    async function fetchData() {
       setLoading(true);
       try {
-        // FIX: Use API library and global city
-        const data = await getHeatmapGeoJSON(city, days);
-
-        // Convert geojson → time series
-        const points = data.features.map(f => ({
-          datetime: new Date(f.properties.datetime),
-          pm25: f.properties.pm25
-        }));
-
-        // Group by hour
-        const grouped = {};
-        points.forEach(p => {
-          const hour = p.datetime.toISOString().slice(0, 13); // YYYY-MM-DD HH
-          if (!grouped[hour]) grouped[hour] = [];
-          grouped[hour].push(p.pm25);
-        });
-
-        const labels = Object.keys(grouped).sort();
-        const values = labels.map(l => {
-          const arr = grouped[l];
-          return arr.reduce((a, b) => a + b, 0) / arr.length;
-        });
-
-        setChartData({
-          labels,
-          datasets: [
-            {
-              label: `PM2.5 History (${city})`,
-              data: values,
-              borderColor: "#6366f1",
-              backgroundColor: "rgba(99, 102, 241, 0.3)",
-              fill: true,
-              tension: 0.3,
-              borderWidth: 2,
-            },
-          ],
-        });
+        // Use the cached fetcher wrapper
+        // It checks localStorage first; if missing, calls getHistory(city, timeRange)
+        const res = await fetchHistoryCached(city, timeRange, () => getHistory(city, timeRange));
+        
+        if (res && res.history) {
+          setHistoryData(res.history);
+        }
       } catch (err) {
-        console.error("History fetch error:", err);
+        console.error("History fetch failed", err);
       }
       setLoading(false);
-    };
+    }
+    fetchData();
+  }, [city, timeRange]);
 
-    fetchHistory();
-  }, [city, days]); // Re-fetch when global city changes
+  // Calculate Stats from Real Data
+  const vals = historyData.map(d => d.pm25);
+  const average = vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0;
+  const max = vals.length ? Math.max(...vals) : 0;
+  const min = vals.length ? Math.min(...vals) : 0;
 
-  // ---------------------------
-  // UI + GRAPH COMPONENT
-  // ---------------------------
+  const chartData = {
+    // Format dates cleanly
+    labels: historyData.map(d => new Date(d.datetime).toLocaleDateString("en-US", { 
+        weekday: 'short', day: 'numeric', hour: 'numeric' 
+    })),
+    datasets: [{
+      label: 'PM2.5 (Observed)',
+      data: vals,
+      borderColor: theme === 'dark' ? '#818cf8' : '#4f46e5',
+      backgroundColor: (context) => {
+        const ctx = context.chart.ctx;
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, theme === 'dark' ? 'rgba(129, 140, 248, 0.4)' : 'rgba(79, 70, 229, 0.4)');
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        return gradient;
+      },
+      fill: true,
+      tension: 0.4,
+      pointRadius: 2, // Smaller points for detailed history
+      pointBackgroundColor: theme === 'dark' ? '#1e1b4b' : '#ffffff',
+      pointBorderWidth: 1,
+    }]
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { display: false }, ticks: { display: false } }, // Hide X labels if too crowded
+      y: { grid: { color: theme === 'dark' ? '#374151' : '#e5e7eb' }, ticks: { color: theme === 'dark' ? '#9ca3af' : '#6b7280' } }
+    }
+  };
+
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold text-primary mb-6">AQI History</h1>
+    <div className="min-h-screen bg-[--bg] transition-colors pb-20">
+      <div className="max-w-[1200px] mx-auto px-4 md:px-6 py-8">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-primary flex items-center gap-2">
+              <div className="p-2 bg-indigo-50 dark:bg-indigo-500/20 rounded-xl text-indigo-500">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+              </div>
+              Historical Data
+            </h1>
+            <p className="text-sm text-secondary mt-1">Real observed data for <span className="font-bold text-primary">{city}</span>.</p>
+          </div>
 
-      {/* FILTERS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-
-        {/* CITY SELECTOR */}
-        <div>
-          <label className="text-secondary text-sm">City</label>
-          <select
-            className="
-              w-full p-2 mt-2 rounded-lg border
-              bg-[var(--card)] text-primary
-              border-gray-700 dark:border-gray-300
-            "
-            value={city} // Use global city
-            onChange={(e) => setCity(e.target.value)} // Set global city
-          >
-            <option>Delhi</option>
-            <option>Mumbai</option>
-            <option>Bengaluru</option>
-            <option>Hyderabad</option>
-            <option>Chennai</option>
-            <option>Kolkata</option>
-          </select>
+          <div className="flex items-center gap-3">
+            {[7, 14, 30].map((d) => (
+              <button
+                key={d}
+                onClick={() => setTimeRange(d)}
+                className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                  timeRange === d 
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:cursor-pointer" 
+                    : "bg-[var(--card)] text-secondary border border-[var(--card-border)] hover:cursor-pointer hover:border-indigo-500/50"
+                }`}
+              >
+                {d} Days
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* TIME RANGE */}
-        <div>
-          <label className="text-secondary text-sm">Time Range</label>
-          <select
-            className="
-              w-full p-2 mt-2 rounded-lg border
-              bg-[var(--card)] text-primary
-              border-gray-700 dark:border-gray-300
-            "
-            value={days}
-            onChange={(e) => setDays(e.target.value)}
-          >
-            <option value={1}>Past 24 Hours</option>
-            <option value={3}>Past 3 Days</option>
-            <option value={7}>Past 7 Days</option>
-            <option value={30}>Past 30 Days</option>
-          </select>
+        {/* Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <StatCard label="Average PM2.5" value={average} unit="µg/m³" color="text-indigo-500" />
+          <StatCard label="Lowest Recorded" value={min} unit="µg/m³" color="text-emerald-500" />
+          <StatCard label="Highest Recorded" value={max} unit="µg/m³" color="text-rose-500" />
         </div>
+
+        {/* Main Chart */}
+        <div className="p-6 rounded-3xl bg-[var(--card)] border border-[var(--card-border)] shadow-lg">
+          <h2 className="text-lg font-bold text-primary mb-6">Pollution Trend</h2>
+          <div className="h-[400px] w-full">
+            {loading ? (
+                 <div className="h-full w-full flex items-center justify-center text-secondary animate-pulse">Loading History...</div>
+            ) : (
+                 <Line data={chartData} options={options} />
+            )}
+          </div>
+        </div>
+
       </div>
+    </div>
+  );
+}
 
-      {/* GRAPH CARD */}
-      <div
-        className="
-          p-6 rounded-2xl shadow-md border
-          bg-[var(--card)] text-primary
-          border-gray-700 dark:border-gray-300
-        "
-      >
-        {loading ? (
-          <p className="text-secondary text-center py-8">Loading data...</p>
-        ) : chartData ? (
-          <Line data={chartData} height={120} />
-        ) : (
-          <p className="text-secondary">No data available</p>
-        )}
+function StatCard({ label, value, unit, color }) {
+  return (
+    <div className="p-6 rounded-3xl bg-[var(--card)] border border-[var(--card-border)] shadow-sm flex flex-col items-center justify-center text-center">
+      <p className="text-xs font-bold text-secondary uppercase tracking-wider mb-1">{label}</p>
+      <div className={`text-4xl font-extrabold ${color}`}>
+        {value} <span className="text-lg text-secondary font-medium">{unit}</span>
       </div>
     </div>
   );

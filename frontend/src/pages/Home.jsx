@@ -5,6 +5,7 @@ import MainPredictionCard from "../components/MainPredictionCard";
 import RealtimeAQICard from "../components/RealtimeAQICard";
 import PollutantCard from "../components/PollutantCard";
 import ForecastCard from "../components/ForecastCard";
+import HealthRecommendationCard from "../components/HealthRecommendationCard"; // 🔥 IMPORT NEW CARD
 import { ThemeContext } from "../context/ThemeContext";
 import { getCurrentAQI, getLivePollutants, getPredict } from "../lib/api";
 import { fetchPredictionsCached } from "../utils/fetchPredictionsCached";
@@ -111,6 +112,9 @@ export default function Home() {
 
         </div>
       </div>
+
+      {/* 🔥 NEW: Health Recommendations Added Here */}
+      <HealthRecommendationCard pm25={currentAqi?.pm25} />
 
       <ForecastCard city={city} hours={24} />
 

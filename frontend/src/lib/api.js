@@ -12,7 +12,6 @@ async function fetchJson(path, opts = {}) {
     try { err = JSON.parse(text); } catch (e) { err = text; }
     throw new Error(`API ${path} failed: ${res.status} ${res.statusText} — ${JSON.stringify(err)}`);
   }
-  // If no content
   if (res.status === 204) return null;
   return res.json();
 }
@@ -25,9 +24,12 @@ export async function getPredict(city = "Delhi", duration_hours = 24) {
   return fetchJson(`/predict?city=${encodeURIComponent(city)}&duration_hours=${duration_hours}`);
 }
 
-// NEW FUNCTION
 export async function getLivePollutants(city = "Delhi") {
   return fetchJson(`/live_pollutants?city=${encodeURIComponent(city)}`);
+}
+
+export async function getHistory(city = "Delhi", days = 7) {
+  return fetchJson(`/history?city=${encodeURIComponent(city)}&days=${days}`);
 }
 
 export async function getWeeklyForecast(city = "Delhi") {
@@ -46,9 +48,10 @@ export async function getModelMetrics(city = "Delhi") {
   return fetchJson(`/metrics?city=${encodeURIComponent(city)}`);
 }
 
+// 🔥 CRITICAL FIX: Ensure 'days' is passed correctly to the URL
 export async function downloadPdfReport(city = "Delhi", days = 7) {
   const url = `${DEFAULT_BASE}/report/pdf?city=${encodeURIComponent(city)}&days=${days}`;
-  // returns blob so frontend can trigger download
+  console.log(`Downloading Report from: ${url}`); // Debug log
   const res = await fetch(url);
   if (!res.ok) throw new Error("Failed to download PDF");
   return res.blob();

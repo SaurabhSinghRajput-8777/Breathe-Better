@@ -1,4 +1,3 @@
-// src/components/MainPredictionCard.jsx
 import React, { useState, useMemo, useEffect, useContext, useRef, useLayoutEffect } from "react";
 import { ThemeContext } from "../context/ThemeContext.jsx";
 import MainPredictionCardSkeleton from "./MainPredictionCard.Skeleton"; // <-- 1. IMPORT SKELETON
@@ -377,7 +376,7 @@ export default function MainPredictionCard({ liveAqiData, predData, loading }) {
               {selectedHourIndex === -1 && liveAqiData && (
                 <span className="w-3 h-3 rounded-full bg-red-500 mr-1 animate-pulse"></span>
               )}
-              <span className="text-base font-bold">
+              <span className="text-base font-sizefont-bold">
                 {selectedHourIndex === -1 ? "Live AQI" : "Predicted Air Quality Index (AQI)"}
               </span>
             </div>
