@@ -7,7 +7,7 @@ export default function About() {
     <div className="min-h-screen bg-[--bg] transition-colors pb-10">
       
       {/* Hero with Gradient */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20 px-6 text-center">
+      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-20 px-6 text-center">
         <div className="max-w-3xl mx-auto">
           <h1 className="text-4xl md:text-5xl font-extrabold mb-6 tracking-tight">
             Breathing new life into data.
